@@ -55,7 +55,7 @@ python -m pytest -q                 # 43 testes
 Detalhe e status dos módulos: [[Codigo (estrutura)]].
 
 ## ▶ Próxima tarefa a executar
-**[P1] C2.5 — fatores ambientais atrás do portão.** Entrar com altitude/calor/bola parada **um a um**, usando `compare()` do harness como portão (IC do ΔBrier no recorte de torneios **não cruza zero**, senão remove). Opcional antes: calibrar os coeficientes placeholder num split de treino. Card em [[BACKLOG]].
+**[P1] Calibrar coeficientes (C2.5, passo 1).** Rodar `python -m scm.calibrate --cutoff 2018-01-01` (grid treino/teste). **Adota se o ganho no teste tiver IC>0** (vira `v0.2`). Depois (passo 2): fatores ambientais um a um pelo portão (`compare()`). Card em [[BACKLOG]].
 
 ## 🔄 Retomada rápida (para um novo chat / após perda de contexto)
 Se você é um agente novo pegando o projeto, faça nesta ordem:

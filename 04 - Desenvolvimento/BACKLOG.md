@@ -25,6 +25,8 @@ data: 2026-06-15
 
 ## 📋 Backlog — C2.5 (cada termo atrás do [[camada2-planejamento-v1|portão]])
 
+- [ ] **[P1] ◀ PRÓXIMO** Calibrar coeficientes (`scm/calibrate.py`) — `python -m scm.calibrate --cutoff 2018-01-01`. Grid treino/teste; **adota só se o ganho no teste tiver IC>0** → vira `v0.2`.
+
 - [ ] **[P1]** Calibrar [[Mando de campo|mando (E2)]] separado de altitude — *dep:* baseline · *aceite:* ΔBrier com IC>0 **ou remover**; θ_alt e mando identificáveis (B2)
 - [ ] **[P1]** [[Ajustes ambientais|Altitude (E1) + calor (E3)]] juntos — *dep:* baseline · *aceite:* IC que não cruza zero; calibrados em conjunto
 - [ ] **[P1]** Piso de [[Ajustes ambientais|bola parada (E4)]] — *dep:* StatsBomb · *aceite:* fecha o gap BTTS observado; IC>0
