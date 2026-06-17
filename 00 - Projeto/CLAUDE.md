@@ -54,13 +54,13 @@ python -m pytest -q                 # 54 testes
 ```
 Detalhe e status dos módulos: [[Codigo (estrutura)]].
 
-## ▶ Próxima tarefa a executar
-**[P1] C2.5 — próximo fator.** Já decididos: **altitude ADOTADA** (D-18); **calor REJEITADO** pelo portão (D-19); **calibração não adotada** (D-17). Candidatos restantes: **bola parada (E4)** — requer StatsBomb (download, subconjunto 2018/2022/Euro) — e **descanso (E6)** — derivável das datas, mas é ajuste de σ (testar cobertura, não Brier). Card em [[BACKLOG]].
+## ▶ Estado: CONSOLIDADO
+**C2.5 fechado** nos fatores de bom custo-benefício. Modelo atual e recomendado: **`baseline-v0.2-altitude`** (validado + altitude). **Sem tarefa ativa.** Futuro **opcional** (retorno decrescente): bola parada (E4, StatsBomb), descanso (E6, σ), xG/Dixon-Coles, afinação de pesos. Para **previsões de 2026**: rodar o pipeline e **registrar antes do kickoff** ([[Registro de previsoes]], imutável).
 
 ## 🔄 Retomada rápida (para um novo chat / após perda de contexto)
 Se você é um agente novo pegando o projeto, faça nesta ordem:
 1. Leia: este `CLAUDE.md` → [[Indice]] → [[BACKLOG]] (estado dos cards) → [[Codigo (estrutura)]] (status dos módulos).
-2. **Estado em 1 linha:** contrato **v5.0**; **Camada 2 — baseline VALIDADO no backtest real** (torneios n=2241: Brier 0,562 bate uniforme com IC), **54 testes**; **próximo = C2.5** (fatores ambientais atrás do portão).
+2. **Estado em 1 linha:** **CONSOLIDADO** em `baseline-v0.2-altitude` — baseline validado (torneios Brier 0,562 bate uniforme com IC) + altitude adotada; calor/calibração barrados pelo portão; **54 testes**; tags `v1.0`/`v1.1` no GitHub.
 3. **Valide o ambiente:** `cd scm_analytics && pip install -r requirements.txt && python -m pytest -q` → esperar **54 passed**. Se uma edição `.py` não refletir, `rm -rf scm/__pycache__ tests/__pycache__` (quirk do sandbox).
 4. **Próxima tarefa:** seção acima (**C2.5**).
 5. **Regras de trabalho:** atualizar a documentação a cada etapa; escrever código de sistema pelo executor (bash) e rodar pytest; nada pago; probabilidades, nunca certezas. Detalhe em [[Decisoes tecnicas]].

@@ -23,14 +23,16 @@ data: 2026-06-15
 
 - [x] **✅ Backtest real — baseline VALIDADO** (49.423 jogos; torneios n=2241: **Brier 0,562 < uniforme 0,667, IC [+0,089,+0,120]**, ECE 0,023, banda dentro). Ver [[Backtest baseline (resultados)]]. **Próximo: C2.5 (lane abaixo).**
 
-## 📋 Backlog — C2.5 (cada termo atrás do [[camada2-planejamento-v1|portão]])
+## ✅ C2.5 — CONSOLIDADO (fatores de bom custo-benefício avaliados pelo portão)
+
+> **Modelo atual: `baseline-v0.2-altitude`.** Altitude ✅ adotada; calor e calibração ✗ (portão). Os itens abaixo ficam como **futuro opcional** (retorno decrescente / atrito de dados).
 
 - [x] **Calibrar coeficientes (`scm/calibrate.py`)** — ganho no teste **+0,0013** (IC marginal) → **não adotado**; placeholders v5 confirmados quase ótimos (D-17). v0.1 mantido.
 
 - [ ] **[P1]** Calibrar [[Mando de campo|mando (E2)]] separado de altitude — *dep:* baseline · *aceite:* ΔBrier com IC>0 **ou remover**; θ_alt e mando identificáveis (B2)
 - [x] **[[Ajustes ambientais|Altitude (E1)]] ADOTADA (v0.2)** — portão **+0,0491** IC[+0,028,+0,070] em 554 jogos → ativa no pipeline (D-18).
 - [x] **[[Ajustes ambientais|Calor (E3)]] NÃO adotada** — portão over/under +0,0007 IC[−0,0008,+0,0022] cruza zero (n=15.378); proxy de climatologia grosseiro (D-19).
-- [ ] **[P1] ◀ PRÓXIMO** Piso de [[Ajustes ambientais|bola parada (E4)]] — *dep:* StatsBomb (download; só 2018/2022/Euro) · *aceite:* fecha o gap BTTS; IC>0
+- [ ] **[P2] (futuro opcional)** Piso de [[Ajustes ambientais|bola parada (E4)]] — *dep:* StatsBomb (download; só 2018/2022/Euro) · *aceite:* fecha o gap BTTS; IC>0
 - [ ] **[P2]** Fuso (E5) + descanso (E6) em `σ_ajuste` — *dep:* baseline · *aceite:* melhora **cobertura da banda**, não o ponto
 - [ ] **[P2]** [[xG preditivo|xG]] prior + Dixon-Coles + reconciliar as duas P(E) — *dep:* StatsBomb · *aceite:* recomputa V/E/D/over/BTTS coerentes
 - [ ] **[P2]** Afinação dos pesos do [[Ensemble]] — *dep:* ≥30 jogos · *aceite:* grid minimiza Brier, congelado por fase
