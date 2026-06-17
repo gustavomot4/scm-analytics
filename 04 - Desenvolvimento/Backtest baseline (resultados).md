@@ -39,3 +39,5 @@ Split treino/teste por torneios (cutoff 2018-01-01; treino n=1905, teste n=336),
 ## Fatores ambientais (C2.5) — pelo portão
 - **Altitude (E1): ADOTADA.** `python -m scm.altitude` → ganho de Brier **+0,0491**, IC95 [+0,028, +0,070] nos **554 jogos de altitude** (La Paz/Quito/Bogotá/CDMX), θ=0,5 (McSharry). Forte e robusto mesmo após o Elo. Modelo passa a **`baseline-v0.2-altitude`** (gd_alt ativo; =0 fora de altitude).
 - **Calor (E3), bola parada (E4):** próximos, cada um atrás do portão.
+
+- **Calor (E3): NÃO adotada.** Portão no Brier de **over/under** (jogos com WBGT>28°C via climatologia mensal Open-Meteo, n=15.378): ganho **+0,0007**, IC [−0,0008, +0,0022] (cruza zero). Proxy de climatologia é grosseiro e o efeito é sutil → o portão rejeita (D-19). Contraste honesto com a altitude (que passou forte): a disciplina distingue um efeito real de um marginal.

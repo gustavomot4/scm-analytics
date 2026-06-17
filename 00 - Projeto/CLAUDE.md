@@ -55,7 +55,7 @@ python -m pytest -q                 # 54 testes
 Detalhe e status dos módulos: [[Codigo (estrutura)]].
 
 ## ▶ Próxima tarefa a executar
-**[P1] C2.5 — rodar o portão do calor (E3).** Termo `T_m·(1−κ·WBGT)` construído (`scm/heat.py`). **Rodar `python -m scm.heat --build-climatology` (1x, lento, rede) → `python -m scm.heat`** — portão no Brier de **over/under** (κ treino/teste). Depois: bola parada (E4). Card em [[BACKLOG]].
+**[P1] C2.5 — próximo fator.** Já decididos: **altitude ADOTADA** (D-18); **calor REJEITADO** pelo portão (D-19); **calibração não adotada** (D-17). Candidatos restantes: **bola parada (E4)** — requer StatsBomb (download, subconjunto 2018/2022/Euro) — e **descanso (E6)** — derivável das datas, mas é ajuste de σ (testar cobertura, não Brier). Card em [[BACKLOG]].
 
 ## 🔄 Retomada rápida (para um novo chat / após perda de contexto)
 Se você é um agente novo pegando o projeto, faça nesta ordem:

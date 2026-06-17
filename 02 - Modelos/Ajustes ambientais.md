@@ -34,3 +34,7 @@ Entram como **incerteza** ([[Incerteza e propagacao]]), **não** como placar.
 
 ## Calor (E3) — construído, aguardando portão (2026-06-17)
 Termo `T_m·(1−κ_heat·excesso_WBGT)` (reduz o **total** de gols) em `scm/heat.py`. WBGT por jogo via **climatologia mensal por cidade** (Open-Meteo Archive, `--build-climatology`, roda 1x na máquina do usuário). Como κ_heat **não tem coeficiente publicado**, é ajustado no **treino** e validado no **teste**. Portão medido no **Brier de over/under** (métrica que o calor afeta), não no V/E/D. Resultado a registrar após a rodada.
+
+
+## Calor (E3) — REJEITADO pelo portão (2026-06-17)
+Portão no Brier de over/under (n=15.378 jogos com WBGT>28°C, climatologia mensal Open-Meteo): ganho **+0,0007**, IC [−0,0008, +0,0022] (cruza zero) → **não adotado** (D-19). Ressalva: a climatologia mensal é proxy grosseiro do WBGT real do jogo; um dado horário poderia detectar algo, mas é inviável (~49k chamadas). Código (`scm/heat.py`) fica disponível para re-teste se houver dado melhor.
