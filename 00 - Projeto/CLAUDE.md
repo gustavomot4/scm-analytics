@@ -73,10 +73,13 @@ O versionamento roda **na máquina do usuário** — o sandbox não mantém `.gi
 git init -b main
 git add -A
 git commit -m "Projeto Copa 2026: vault + baseline Camada 2"
-git remote add origin https://github.com/<usuario>/<repo>.git
-git push -u origin main
 ```
-(Crie antes um repositório **vazio** em github.com — sem README/licença — ou use `gh repo create <repo> --private --source=. --push`.)
+Criar o repo no GitHub e publicar **pelo terminal** com a GitHub CLI (`gh`):
+```
+gh auth login                                               # 1x, autentica via navegador
+gh repo create <repo> --private --source=. --remote=origin --push
+```
+Sem `gh`: crie um repo **vazio** em github.com/new e rode `git remote add origin <URL>` + `git push -u origin main`.
 
 **Sincronizar a cada etapa de código:**
 ```
