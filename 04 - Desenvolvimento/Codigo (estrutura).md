@@ -22,7 +22,8 @@ scm_analytics/
 │   ├── predictor.py    # GD/T_m -> Poisson + Elo-direto propagado -> P(V/E/D)+banda
 │   ├── backtest_harness.py # Brier/RPS/LogLoss + IC bootstrap + portão por termo
 │   ├── report.py       # calibração (reliability/ECE) + cobertura de banda
-│   └── calibrate.py    # [C2.5] grid treino/teste dos coeficientes + portão de adoção
+│   ├── calibrate.py    # [C2.5] grid treino/teste dos coeficientes + portão de adoção
+│   └── altitude.py     # [C2.5/E1] termo GD_alt (McSharry) + portão por subconjunto
 ├── tests/
 │   ├── test_ingest.py        # 5 testes (M1)
 │   ├── test_elo_engine.py    # 9 testes (M2)
@@ -30,7 +31,8 @@ scm_analytics/
 │   ├── test_predictor.py     # 9 testes (M4)
 │   ├── test_backtest_harness.py # 7 testes (M5)
 │   ├── test_report.py        # 6 testes (M6)
-│   └── test_calibrate.py     # 3 testes (C2.5)
+│   ├── test_calibrate.py     # 3 testes (C2.5)
+│   └── test_altitude.py      # 3 testes (E1)
 ├── dados/              # snapshots + scm.sqlite (gerados; .gitignore)
 ├── requirements.txt
 └── README.md

@@ -55,7 +55,7 @@ python -m pytest -q                 # 46 testes
 Detalhe e status dos módulos: [[Codigo (estrutura)]].
 
 ## ▶ Próxima tarefa a executar
-**[P1] C2.5 passo 2 — fatores ambientais pelo portão.** Calibração (passo 1) feita: ganho desprezível, **v0.1 mantido** (D-17). Agora: **altitude (E1)** primeiro, começando por CONMEBOL (tabela de elevações, McSharry), com `compare()` decidindo (IC do ΔBrier não cruza zero). Requer ingerir dado de altitude. Card em [[BACKLOG]].
+**[P1] C2.5 passo 2 — portão da altitude (E1).** Termo `GD_alt` construído (`scm/altitude.py`, McSharry). **Rodar `python -m scm.altitude`**: o portão decide se a altitude agrega **além** do que o Elo já captura (mantém SSE IC do ΔBrier nos jogos de altitude não cruza zero). Depois: calor (E3), bola parada (E4). Card em [[BACKLOG]].
 
 ## 🔄 Retomada rápida (para um novo chat / após perda de contexto)
 Se você é um agente novo pegando o projeto, faça nesta ordem:
