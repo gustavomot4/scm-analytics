@@ -21,6 +21,19 @@ WBGT_THRESHOLD = 28.0   # °C — estresse térmico relevante [verificar]
 HEAT_FLOOR = 0.85       # T_m reduz no máximo 15%
 CLIMA_PATH = Path(__file__).resolve().parent.parent / "dados" / "climatology.json"
 
+# Só vale buscar clima onde o calor pode morder (WBGT alto). Filtra a ingestão p/ ser viável.
+HOT_COUNTRIES = {
+    "Qatar","United Arab Emirates","Saudi Arabia","Kuwait","Bahrain","Oman","Iraq","Iran","Yemen",
+    "Egypt","Sudan","Libya","Algeria","Morocco","Tunisia","Mauritania",
+    "Nigeria","Ghana","Senegal","Ivory Coast","Cameroon","Mali","Burkina Faso","Guinea","Gabon",
+    "DR Congo","Congo","Angola","Kenya","Tanzania","Uganda","Ethiopia","Somalia","Zambia","Zimbabwe",
+    "Brazil","Mexico","Colombia","Venezuela","Ecuador","Peru","Bolivia","Paraguay","Guyana","Suriname",
+    "Panama","Costa Rica","Honduras","Nicaragua","Guatemala","El Salvador","Cuba","Jamaica","Haiti",
+    "Dominican Republic","Trinidad and Tobago",
+    "India","Pakistan","Bangladesh","Sri Lanka","Thailand","Vietnam","Malaysia","Indonesia","Singapore",
+    "Philippines","Myanmar","Cambodia","United States","Australia",
+}
+
 
 def wbgt(temp_c: float, rh: float) -> float:
     """Proxy WBGT (Australian BoM, sem sol/vento). temp_c em °C, rh em %."""
@@ -46,15 +59,24 @@ def _geocode(city: str):
     return (res[0]["latitude"], res[0]["longitude"]) if res else None
 
 
-def build_climatology(conn, year: int = 2023, path=CLIMA_PATH) -> dict:
+def build_climatology(conn, year: int = 2023, path=CLIMA_PATH, all_cities: bool = False) -> dict:
     """Climatologia mensal (Tmax médio, RH médio) por cidade única, via Open-Meteo. Cacheia JSON.
     LENTO: ~1 chamada por cidade. Roda na máquina do usuário (requer rede)."""
     import requests
     path = Path(path)
     clima = json.loads(path.read_text()) if path.exists() else {}
-    cities = [r[0] for r in conn.execute(
-        "SELECT DISTINCT city FROM matches WHERE city IS NOT NULL AND city <> ''")]
+    if all_cities:
+        cities = [r[0] for r in conn.execute(
+            "SELECT DISTINCT city FROM matches WHERE city IS NOT NULL AND city <> ''")]
+    else:
+        q = ("SELECT DISTINCT city FROM matches WHERE city IS NOT NULL AND city <> '' "
+             "AND country IN (%s)" % ",".join("?" * len(HOT_COUNTRIES)))
+        cities = [r[0] for r in conn.execute(q, tuple(HOT_COUNTRIES))]
+    pend = [c for c in cities if c not in clima]
+    print(f"cidades a processar: {len(pend)} (de {len(cities)} em países quentes)", flush=True)
     for i, city in enumerate(cities):
+        if i % 20 == 0:
+            print(f"  ... {i}/{len(cities)}", flush=True)
         if city in clima:
             continue
         ll = _geocode(city)
@@ -141,10 +163,11 @@ def main(argv=None) -> int:
     p.add_argument("--db", default=str(DEFAULT_DB))
     p.add_argument("--build-climatology", action="store_true", help="baixa climatologia por cidade (LENTO, requer rede)")
     p.add_argument("--year", type=int, default=2023)
+    p.add_argument("--all-cities", action="store_true", help="todas as cidades (LENTÍSSIMO); padrão só países quentes")
     args = p.parse_args(argv)
     conn = db.connect(args.db)
     if args.build_climatology:
-        c = build_climatology(conn, year=args.year)
+        c = build_climatology(conn, year=args.year, all_cities=args.all_cities)
         print(f"climatologia construída p/ {len(c)} cidades -> {CLIMA_PATH}")
         conn.close(); return 0
     clima = load_climatology()
