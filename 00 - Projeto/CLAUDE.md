@@ -50,18 +50,18 @@ python -m scm.ingest                # -> dados/scm.sqlite (offline)
 python -m scm.elo_engine            # reconstrói o Elo
 python -m scm.features_pit          # features point-in-time
 python -m scm.predictor             # previsões -> tabela predictions
-python -m pytest -q                 # 50 testes
+python -m pytest -q                 # 54 testes
 ```
 Detalhe e status dos módulos: [[Codigo (estrutura)]].
 
 ## ▶ Próxima tarefa a executar
-**[P1] C2.5 — calor (E3).** **Altitude (E1) já ADOTADA** (v0.2; portão +0,049, D-18). Próximo fator: **calor** `T_m·(1−κ_heat·WBGT)` — requer dado de clima (Open-Meteo Archive por sede/horário), atrás do portão. Card em [[BACKLOG]].
+**[P1] C2.5 — rodar o portão do calor (E3).** Termo `T_m·(1−κ·WBGT)` construído (`scm/heat.py`). **Rodar `python -m scm.heat --build-climatology` (1x, lento, rede) → `python -m scm.heat`** — portão no Brier de **over/under** (κ treino/teste). Depois: bola parada (E4). Card em [[BACKLOG]].
 
 ## 🔄 Retomada rápida (para um novo chat / após perda de contexto)
 Se você é um agente novo pegando o projeto, faça nesta ordem:
 1. Leia: este `CLAUDE.md` → [[Indice]] → [[BACKLOG]] (estado dos cards) → [[Codigo (estrutura)]] (status dos módulos).
-2. **Estado em 1 linha:** contrato **v5.0**; **Camada 2 — baseline VALIDADO no backtest real** (torneios n=2241: Brier 0,562 bate uniforme com IC), **50 testes**; **próximo = C2.5** (fatores ambientais atrás do portão).
-3. **Valide o ambiente:** `cd scm_analytics && pip install -r requirements.txt && python -m pytest -q` → esperar **50 passed**. Se uma edição `.py` não refletir, `rm -rf scm/__pycache__ tests/__pycache__` (quirk do sandbox).
+2. **Estado em 1 linha:** contrato **v5.0**; **Camada 2 — baseline VALIDADO no backtest real** (torneios n=2241: Brier 0,562 bate uniforme com IC), **54 testes**; **próximo = C2.5** (fatores ambientais atrás do portão).
+3. **Valide o ambiente:** `cd scm_analytics && pip install -r requirements.txt && python -m pytest -q` → esperar **54 passed**. Se uma edição `.py` não refletir, `rm -rf scm/__pycache__ tests/__pycache__` (quirk do sandbox).
 4. **Próxima tarefa:** seção acima (**C2.5**).
 5. **Regras de trabalho:** atualizar a documentação a cada etapa; escrever código de sistema pelo executor (bash) e rodar pytest; nada pago; probabilidades, nunca certezas. Detalhe em [[Decisoes tecnicas]].
 

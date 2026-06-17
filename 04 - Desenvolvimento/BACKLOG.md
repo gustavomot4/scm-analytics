@@ -29,7 +29,7 @@ data: 2026-06-15
 
 - [ ] **[P1]** Calibrar [[Mando de campo|mando (E2)]] separado de altitude — *dep:* baseline · *aceite:* ΔBrier com IC>0 **ou remover**; θ_alt e mando identificáveis (B2)
 - [x] **[[Ajustes ambientais|Altitude (E1)]] ADOTADA (v0.2)** — portão **+0,0491** IC[+0,028,+0,070] em 554 jogos → ativa no pipeline (D-18).
-- [ ] **[P1] ◀ PRÓXIMO** [[Ajustes ambientais|Calor (E3)]] — `T_m·(1−κ_heat·WBGT)`; **requer dado de clima** (Open-Meteo Archive por sede/horário). Atrás do portão.
+- [ ] **[P1] ◀ PRÓXIMO** [[Ajustes ambientais|Calor (E3)]] — termo `T_m·(1−κ·WBGT)` **construído** (`scm/heat.py`; climatologia mensal por cidade via Open-Meteo). **Rodar `python -m scm.heat --build-climatology` (1x, lento) → `python -m scm.heat`**: portão no Brier de **over/under** (κ treino/teste).
 - [ ] **[P1]** Piso de [[Ajustes ambientais|bola parada (E4)]] — *dep:* StatsBomb · *aceite:* fecha o gap BTTS observado; IC>0
 - [ ] **[P2]** Fuso (E5) + descanso (E6) em `σ_ajuste` — *dep:* baseline · *aceite:* melhora **cobertura da banda**, não o ponto
 - [ ] **[P2]** [[xG preditivo|xG]] prior + Dixon-Coles + reconciliar as duas P(E) — *dep:* StatsBomb · *aceite:* recomputa V/E/D/over/BTTS coerentes

@@ -23,7 +23,8 @@ scm_analytics/
 │   ├── backtest_harness.py # Brier/RPS/LogLoss + IC bootstrap + portão por termo
 │   ├── report.py       # calibração (reliability/ECE) + cobertura de banda
 │   ├── calibrate.py    # [C2.5] grid treino/teste dos coeficientes + portão de adoção
-│   └── altitude.py     # [C2.5/E1] termo GD_alt (McSharry) + portão por subconjunto
+│   ├── altitude.py     # [C2.5/E1] termo GD_alt (McSharry) + portão por subconjunto
+│   └── heat.py         # [C2.5/E3] WBGT (Open-Meteo) + termo de calor + portão over/under
 ├── tests/
 │   ├── test_ingest.py        # 5 testes (M1)
 │   ├── test_elo_engine.py    # 9 testes (M2)
@@ -32,7 +33,8 @@ scm_analytics/
 │   ├── test_backtest_harness.py # 7 testes (M5)
 │   ├── test_report.py        # 6 testes (M6)
 │   ├── test_calibrate.py     # 3 testes (C2.5)
-│   └── test_altitude.py      # 3 testes (E1)
+│   ├── test_altitude.py      # 3 testes (E1)
+│   └── test_heat.py          # 4 testes (E3)
 ├── dados/              # snapshots + scm.sqlite (gerados; .gitignore)
 ├── requirements.txt
 └── README.md

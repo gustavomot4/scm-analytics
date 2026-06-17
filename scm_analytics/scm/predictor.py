@@ -45,14 +45,15 @@ def gd_of(dr: float, p: PredictParams) -> float:
     return p.theta_gd * dr / 100.0
 
 
-def tm_of(dr: float, p: PredictParams, estilo_a: float = 1.0, estilo_b: float = 1.0) -> float:
-    return (p.t_base + p.kappa_tm * abs(dr) / 100.0) * estilo_a * estilo_b
+def tm_of(dr: float, p: PredictParams, estilo_a: float = 1.0, estilo_b: float = 1.0,
+          heat_factor: float = 1.0) -> float:
+    return (p.t_base + p.kappa_tm * abs(dr) / 100.0) * estilo_a * estilo_b * heat_factor
 
 
 def lambdas(dr: float, p: PredictParams, estilo_a: float = 1.0, estilo_b: float = 1.0,
-            gd_alt: float = 0.0):
+            gd_alt: float = 0.0, heat_factor: float = 1.0):
     gd = gd_of(dr, p) + gd_alt
-    tm = tm_of(dr, p, estilo_a, estilo_b)
+    tm = tm_of(dr, p, estilo_a, estilo_b, heat_factor=heat_factor)
     la = max(p.lambda_min, (tm + gd) / 2.0)
     lb = max(p.lambda_min, (tm - gd) / 2.0)
     return la, lb
@@ -125,8 +126,9 @@ def _clamp_norm(triple, lo, hi):
 
 
 def predict(dr: float, sigma_dr: float, p: PredictParams = PredictParams(),
-            estilo_a: float = 1.0, estilo_b: float = 1.0, gd_alt: float = 0.0) -> dict:
-    la, lb = lambdas(dr, p, estilo_a, estilo_b, gd_alt=gd_alt)
+            estilo_a: float = 1.0, estilo_b: float = 1.0, gd_alt: float = 0.0,
+            heat_factor: float = 1.0) -> dict:
+    la, lb = lambdas(dr, p, estilo_a, estilo_b, gd_alt=gd_alt, heat_factor=heat_factor)
     pois = poisson_reads(la, lb, p.max_goals)
     elo = elo_direct_read(dr, sigma_dr, p)
     cp = _clamp_norm((pois["pv"], pois["pe"], pois["pd"]), p.clamp_lo, p.clamp_hi)

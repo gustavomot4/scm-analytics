@@ -30,3 +30,7 @@ Entram como **incerteza** ([[Incerteza e propagacao]]), **não** como placar.
 
 ## Atualização (2026-06-17)
 **Altitude (E1): ADOTADA** — passou o portão (+0,049 de Brier, IC [+0,028, +0,070] em 554 jogos de altitude; θ=0,5 McSharry). Ativa no `predictor` (modelo `baseline-v0.2-altitude`), via `scm/altitude.py`; `gd_alt=0` fora de sedes altas. **Calor (E3)** e **bola parada (E4)** seguem como candidatos atrás do portão. Ver [[Backtest baseline (resultados)]] e [[Decisoes tecnicas]] D-18.
+
+
+## Calor (E3) — construído, aguardando portão (2026-06-17)
+Termo `T_m·(1−κ_heat·excesso_WBGT)` (reduz o **total** de gols) em `scm/heat.py`. WBGT por jogo via **climatologia mensal por cidade** (Open-Meteo Archive, `--build-climatology`, roda 1x na máquina do usuário). Como κ_heat **não tem coeficiente publicado**, é ajustado no **treino** e validado no **teste**. Portão medido no **Brier de over/under** (métrica que o calor afeta), não no V/E/D. Resultado a registrar após a rodada.
