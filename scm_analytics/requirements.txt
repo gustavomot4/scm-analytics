@@ -4,3 +4,4 @@ numpy>=1.26         # cálculos (elo_engine, harness) — próximos módulos
 pandas>=2.0         # manipulação de dados
 matplotlib>=3.8     # reliability diagrams (report)
 pytest>=8.0         # testes
+flask>=3.0          # interface web local (scm.web)

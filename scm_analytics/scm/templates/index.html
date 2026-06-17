@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SCM Analytics — Previsão de partidas</title>
+<style>
+  :root{
+    --bg:#ffffff; --panel:#f7f8fa; --text:#1c1f23; --muted:#6b7280;
+    --border:#e5e7eb; --border-strong:#d2d6db;
+    --accent:#2563eb; --accent-weak:#eef3ff; --accent-strong:#1d57d6;
+    --win:#2563eb; --draw:#9aa1ab; --loss:#56627a;
+    --radius:8px; --radius-sm:6px;
+    --shadow:0 1px 2px rgba(16,24,40,.04), 0 1px 3px rgba(16,24,40,.06);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{background:var(--bg); color:var(--text); line-height:1.5; -webkit-font-smoothing:antialiased;
+    font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; font-size:14px;}
+  .tnum{font-variant-numeric:tabular-nums}
+  header{height:56px; display:flex; align-items:center; justify-content:space-between;
+    padding:0 24px; border-bottom:1px solid var(--border);}
+  .brand{font-weight:600; font-size:15px; letter-spacing:-.01em}
+  .brand span{color:var(--muted); font-weight:400; margin-left:8px}
+  .model{font-size:12px; color:var(--muted)}
+  main{max-width:880px; margin:0 auto; padding:28px 24px 48px}
+  h1{font-size:18px; font-weight:600; margin:0 0 4px; letter-spacing:-.01em}
+  .sub{color:var(--muted); margin:0 0 20px; font-size:13px}
+  form.form{display:grid; grid-template-columns:1fr 1fr 200px auto; gap:12px; align-items:end;
+    padding:16px; border:1px solid var(--border); border-radius:var(--radius); background:var(--panel);}
+  .field{display:flex; flex-direction:column; gap:6px; min-width:0}
+  label{font-size:12px; color:var(--muted); font-weight:500}
+  input[type=text],select{height:36px; padding:0 10px; border:1px solid var(--border-strong);
+    border-radius:var(--radius-sm); background:#fff; color:var(--text); font:inherit; outline:none;}
+  input[type=text]:focus,select:focus{border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-weak)}
+  button.primary{height:36px; padding:0 18px; border:1px solid var(--accent); border-radius:var(--radius-sm);
+    background:var(--accent); color:#fff; font:inherit; font-weight:500; cursor:pointer;}
+  button.primary:hover{background:var(--accent-strong); border-color:var(--accent-strong)}
+  button.primary:disabled{opacity:.55; cursor:default}
+  .count{color:var(--muted); font-size:12px; margin-top:10px}
+  .error{display:none; margin-top:16px; padding:11px 14px; border:1px solid #eecaca;
+    background:#fcf4f4; color:#9b2c2c; border-radius:var(--radius-sm); font-size:13px}
+  .error.show{display:block}
+
+  .result{display:none; margin-top:20px; border:1px solid var(--border);
+    border-radius:var(--radius); box-shadow:var(--shadow); background:#fff; overflow:hidden}
+  .result.show{display:block}
+  .r-head{display:flex; align-items:baseline; justify-content:space-between; gap:12px;
+    padding:14px 16px; border-bottom:1px solid var(--border)}
+  .r-title{font-size:15px; font-weight:600}
+  .r-meta{font-size:12px; color:var(--muted); text-align:right}
+  .r-body{padding:16px}
+  .bar{display:flex; height:10px; border-radius:999px; overflow:hidden; border:1px solid var(--border)}
+  .bar i{display:block; height:100%}
+  .legend{display:flex; gap:20px; margin-top:12px; flex-wrap:wrap}
+  .legend .item{display:flex; align-items:center; gap:8px; font-size:13px}
+  .dot{width:9px; height:9px; border-radius:2px; flex:none}
+  .legend .pct{font-weight:600}
+  .legend .nm{color:var(--muted)}
+  .band{font-size:12px; color:var(--muted); margin-top:8px}
+  .stats{display:grid; grid-template-columns:repeat(4,1fr); gap:1px; background:var(--border);
+    border:1px solid var(--border); border-radius:var(--radius-sm); overflow:hidden; margin-top:18px}
+  .stat{background:#fff; padding:10px 12px}
+  .stat .k{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.03em}
+  .stat .v{font-size:15px; font-weight:600; margin-top:3px}
+  .cols{display:grid; grid-template-columns:1.2fr 1fr; gap:24px; margin-top:18px}
+  .colhead{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; margin-bottom:8px}
+  table{width:100%; border-collapse:collapse; font-size:13px}
+  th,td{text-align:left; padding:6px 4px; border-bottom:1px solid var(--border)}
+  th{font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; font-weight:500}
+  td.r,th.r{text-align:right}
+  tr:last-child td{border-bottom:none}
+  .meter{height:6px; background:var(--panel); border:1px solid var(--border); border-radius:999px; overflow:hidden}
+  .meter i{display:block; height:100%; background:var(--accent)}
+  .conflbl{font-size:13px; margin-top:8px}
+  .conflbl b{font-weight:600}
+  .footer{padding:10px 16px; border-top:1px solid var(--border); color:var(--muted); font-size:12px}
+  @media(max-width:680px){
+    form.form{grid-template-columns:1fr 1fr} .cols{grid-template-columns:1fr} .stats{grid-template-columns:repeat(2,1fr)}
+  }
+</style>
+</head>
+<body>
+  <header>
+    <div class="brand">SCM Analytics<span>Previsão de partidas — Copa 2026</span></div>
+    <div class="model" id="model"></div>
+  </header>
+  <main>
+    <h1>Prever um confronto</h1>
+    <p class="sub">Probabilidades a partir do Elo histórico e do modelo validado por backtest. Probabilidade, não certeza.</p>
+
+    <form class="form" id="form" autocomplete="off">
+      <div class="field">
+        <label for="home">Mandante / Time A</label>
+        <input type="text" id="home" list="teams" placeholder="ex.: Brazil" required>
+      </div>
+      <div class="field">
+        <label for="away">Visitante / Time B</label>
+        <input type="text" id="away" list="teams" placeholder="ex.: Argentina" required>
+      </div>
+      <div class="field">
+        <label for="venue">Sede</label>
+        <select id="venue">
+          <option value="neutral">Neutra</option>
+          <option value="host">Anfitrião (Time A, +40)</option>
+          <option value="MexicoCity">Altitude — Cidade do México</option>
+          <option value="LaPaz">Altitude — La Paz</option>
+          <option value="Quito">Altitude — Quito</option>
+          <option value="Bogota">Altitude — Bogotá</option>
+        </select>
+      </div>
+      <div class="field">
+        <label aria-hidden="true">&nbsp;</label>
+        <button type="submit" class="primary" id="go">Prever</button>
+      </div>
+      <datalist id="teams"></datalist>
+    </form>
+    <div class="count" id="count"></div>
+
+    <div class="error" id="error" role="alert"></div>
+
+    <section class="result" id="result" aria-live="polite">
+      <div class="r-head">
+        <div class="r-title" id="rt"></div>
+        <div class="r-meta" id="rmeta"></div>
+      </div>
+      <div class="r-body">
+        <div class="bar" id="bar"></div>
+        <div class="legend" id="legend"></div>
+        <div class="band" id="band"></div>
+        <div class="stats" id="stats"></div>
+        <div class="cols">
+          <div>
+            <div class="colhead">Placares mais prováveis</div>
+            <table>
+              <thead><tr><th>Placar</th><th class="r">Probabilidade</th></tr></thead>
+              <tbody id="scores"></tbody>
+            </table>
+          </div>
+          <div>
+            <div class="colhead">Confiança</div>
+            <div class="meter"><i id="confbar"></i></div>
+            <div class="conflbl" id="conflbl"></div>
+          </div>
+        </div>
+      </div>
+      <div class="footer">Probabilidade, não certeza — não é recomendação de aposta.</div>
+    </section>
+  </main>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const pct = x => (x*100).toFixed(1) + '%';
+  const venueMap = {neutral:{}, host:{mando:40}, MexicoCity:{city:'Mexico City'},
+    LaPaz:{city:'La Paz'}, Quito:{city:'Quito'}, Bogota:{city:'Bogota'}};
+  const colorFor = k => k==='v' ? 'var(--win)' : k==='e' ? 'var(--draw)' : 'var(--loss)';
+
+  async function loadTeams(){
+    try{
+      const d = await (await fetch('/api/teams')).json();
+      $('teams').innerHTML = d.teams.map(t => `<option value="${t}"></option>`).join('');
+      $('count').textContent = d.teams.length + ' seleções com rating';
+      $('model').textContent = 'modelo ' + d.model;
+    }catch(e){ $('count').textContent = 'Não foi possível carregar as seleções.'; }
+  }
+
+  async function predict(e){
+    e.preventDefault();
+    $('error').classList.remove('show'); $('result').classList.remove('show');
+    $('go').disabled = true; $('go').textContent = 'Calculando…';
+    const v = venueMap[$('venue').value] || {};
+    const q = new URLSearchParams({home:$('home').value, away:$('away').value});
+    if(v.city) q.set('city', v.city);
+    if(v.mando) q.set('mando', v.mando);
+    try{
+      const d = await (await fetch('/api/predict?' + q.toString())).json();
+      if(d.erro){
+        const sg = (d.sugestoes && d.sugestoes.length) ? ' — nomes parecidos: ' + d.sugestoes.join(', ') : '';
+        $('error').textContent = d.erro + sg; $('error').classList.add('show');
+      } else { render(d); }
+    }catch(err){ $('error').textContent = 'Falha ao calcular a previsão.'; $('error').classList.add('show'); }
+    finally{ $('go').disabled = false; $('go').textContent = 'Prever'; }
+  }
+
+  function render(d){
+    $('rt').textContent = d.home + '   vs   ' + d.away;
+    $('rmeta').innerHTML = d.venue + ' &middot; Elo ' + d.elo_home + '–' + d.elo_away
+      + ' (dr ' + (d.dr>=0?'+':'') + d.dr + ')' + (d.provisional ? ' &middot; rating provisório' : '');
+    $('bar').innerHTML = [['v',d.p_v],['e',d.p_e],['l',d.p_d]]
+      .map(([k,x]) => `<i style="width:${x*100}%;background:${colorFor(k)}"></i>`).join('');
+    $('legend').innerHTML = [['v',d.home,d.p_v],['e','Empate',d.p_e],['l',d.away,d.p_d]]
+      .map(([k,nm,x]) => `<div class="item"><span class="dot" style="background:${colorFor(k)}"></span><span class="pct tnum">${pct(x)}</span><span class="nm">${nm}</span></div>`).join('');
+    $('band').textContent = 'Banda de P(' + d.home + '): ' + pct(d.band_lo) + ' – ' + pct(d.band_hi);
+    $('stats').innerHTML = [
+      ['λ ' + d.home, d.lambda_a.toFixed(2)],
+      ['λ ' + d.away, d.lambda_b.toFixed(2)],
+      ['Over 2.5', (d.p_over25*100).toFixed(0) + '%'],
+      ['Ambos marcam', (d.p_btts*100).toFixed(0) + '%'],
+    ].map(([k,v]) => `<div class="stat"><div class="k">${k}</div><div class="v tnum">${v}</div></div>`).join('');
+    $('scores').innerHTML = d.scores.map(s => `<tr><td class="tnum">${s[0]}</td><td class="r tnum">${(s[1]*100).toFixed(0)}%</td></tr>`).join('');
+    $('confbar').style.width = Math.round(d.conf) + '%';
+    $('conflbl').innerHTML = '<b>' + Math.round(d.conf) + ' / 100</b> — ' + d.conf_label;
+    $('result').classList.add('show');
+  }
+
+  $('form').addEventListener('submit', predict);
+  loadTeams();
+</script>
+</body>
+</html>

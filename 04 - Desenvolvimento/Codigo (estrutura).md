@@ -25,7 +25,9 @@ scm_analytics/
 │   ├── calibrate.py    # [C2.5] grid treino/teste dos coeficientes + portão de adoção
 │   ├── altitude.py     # [C2.5/E1] termo GD_alt (McSharry) + portão por subconjunto
 │   ├── heat.py         # [C2.5/E3] WBGT (Open-Meteo) + termo de calor + portão over/under
-│   └── predict_match.py # PORTA DA FRENTE: prevê um confronto (Elo atual + mando/altitude)
+│   ├── predict_match.py # prevê um confronto (Elo atual + mando/altitude)
+│   ├── web.py          # INTERFACE WEB local (Flask: página + API /api/predict)
+│   └── templates/index.html  # UI (design de produto; sem cara de IA)
 ├── tests/
 │   ├── test_ingest.py        # 5 testes (M1)
 │   ├── test_elo_engine.py    # 9 testes (M2)
@@ -36,7 +38,8 @@ scm_analytics/
 │   ├── test_calibrate.py     # 3 testes (C2.5)
 │   ├── test_altitude.py      # 3 testes (E1)
 │   ├── test_heat.py          # 4 testes (E3)
-│   └── test_predict_match.py # 4 testes (porta da frente)
+│   ├── test_predict_match.py # 4 testes (porta da frente)
+│   └── test_web.py           # 4 testes (interface)
 ├── dados/              # snapshots + scm.sqlite (gerados; .gitignore)
 ├── requirements.txt
 └── README.md
