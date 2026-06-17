@@ -21,7 +21,7 @@ data: 2026-06-15
 
 ## 🔜 Sprint 2 — Backtest com dados reais ([[camada2-planejamento-v1]])
 
-- [ ] **[P0] ◀ PRÓXIMO** Rodar o backtest com **dados reais** (martj42 via `--download`, na máquina do usuário): Brier vs uniforme/Elo com IC, reliability, cobertura. **É o aceite real do projeto** — onde se decide se há acurácia.
+- [x] **✅ Backtest real — baseline VALIDADO** (49.423 jogos; torneios n=2241: **Brier 0,562 < uniforme 0,667, IC [+0,089,+0,120]**, ECE 0,023, banda dentro). Ver [[Backtest baseline (resultados)]]. **Próximo: C2.5 (lane abaixo).**
 
 ## 📋 Backlog — C2.5 (cada termo atrás do [[camada2-planejamento-v1|portão]])
 
@@ -29,4 +29,11 @@ data: 2026-06-15
 - [ ] **[P1]** [[Ajustes ambientais|Altitude (E1) + calor (E3)]] juntos — *dep:* baseline · *aceite:* IC que não cruza zero; calibrados em conjunto
 - [ ] **[P1]** Piso de [[Ajustes ambientais|bola parada (E4)]] — *dep:* StatsBomb · *aceite:* fecha o gap BTTS observado; IC>0
 - [ ] **[P2]** Fuso (E5) + descanso (E6) em `σ_ajuste` — *dep:* baseline · *aceite:* melhora **cobertura da banda**, não o ponto
-- [ ] **[P2]** [[xG preditivo|xG]] prior + Dixon-Coles + reconciliar as duas P(E) — *dep:* StatsBomb · *aceite:* re
+- [ ] **[P2]** [[xG preditivo|xG]] prior + Dixon-Coles + reconciliar as duas P(E) — *dep:* StatsBomb · *aceite:* recomputa V/E/D/over/BTTS coerentes
+- [ ] **[P2]** Afinação dos pesos do [[Ensemble]] — *dep:* ≥30 jogos · *aceite:* grid minimiza Brier, congelado por fase
+
+## 📋 Backlog — Camadas 3–6
+
+- [ ] **[P2]** Detector de desfalques (JSON → σ) — Camada 3
+- [ ] **[P2]** Insights: Monte Carlo do torneio + cenários de classificação — Camada 5
+- [ ] **[P2]** Interface local — Camada 6

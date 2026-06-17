@@ -42,4 +42,4 @@ meta(key, value)
 `match_ratings` é o snapshot **pré-jogo** que o `features_pit` (próximo) vai consumir — é como o anti look-ahead fica garantido.
 
 ## Relacionado
-[[Fontes gratuitas]] · [[Registro de previsoes]] · [[camada2-baseline-plano-v1]] (módulo `in
+[[Fontes gratuitas]] · [[Registro de previsoes]] · [[camada2-baseline-plano-v1]] (módulo `ingest`)

@@ -53,4 +53,13 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 python -m scm.ingest --download    # snapshot martj42 (1x, requer rede)
 python -m scm.ingest               # -> dados/scm.sqlite (offline)
-python -m scm.elo_engine --top 30  # reconstrói o
+python -m scm.elo_engine --top 30  # reconstrói o Elo + top-30 (benchmark eloratings)
+python -m pytest -q                # testes
+```
+> **Nota (sandbox):** se uma edição em `.py` não refletir nos testes, limpe o bytecode — `rm -rf scm/__pycache__ tests/__pycache__` (ou rode com `PYTHONDONTWRITEBYTECODE=1`).
+
+## Decisões ligadas
+[[Decisoes tecnicas|D-10 a D-13]]: pacote `scm`, idempotência por `natural_key`, pular jogos sem placar, testes sem rede.
+
+## Relacionado
+[[CLAUDE]] · [[BACKLOG]] · [[MODELO_FINAL]] · [[Esquema SQLite]] · [[camada2-baseline-plano-v1]]
