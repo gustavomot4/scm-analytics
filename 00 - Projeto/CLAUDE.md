@@ -15,8 +15,8 @@ Motor matemático auditável (Elo → Poisson → ensemble), validado por **back
 
 ## Estado atual
 **Planejamento (congelado):** contrato matemático **v5.0** ([[camada1-planejamento-v5]]), auditado ([[camada1-revisao-v5]]) e autocontido ([[camada1-apendice-formas-v5]]); design do backtest ([[camada2-planejamento-v1]]); plano de build ([[camada2-baseline-plano-v1]]); 9 execuções manuais ([[06 - Analises]]); registro imutável ([[Registro de previsoes]]).
-**Código (Camada 2, em andamento):** módulos **`ingest`**, **`elo_engine`**, **`features_pit`** e **`predictor`** (Poisson + Elo-direto propagado → P(V/E/D)+banda+λ+over/BTTS; grava `predictions`) implementados e testados (**29/29**) — ver [[Codigo (estrutura)]]. Próximo: `backtest_harness`.
-**Falta:** `backtest_harness` + `report`. **Nada foi backtestado** — coerência, não acurácia (o harness é quem vai medir). Parâmetros `[a calibrar]`.
+**Código (Camada 2, em andamento):** módulos `ingest`, `elo_engine`, `features_pit`, `predictor` e **`backtest_harness`** (Brier/RPS/LogLoss + IC bootstrap + **portão por termo**) implementados e testados (**36/36**) — ver [[Codigo (estrutura)]]. Próximo: `report` (último do baseline).
+**Falta:** `report` (reliability diagrams + cobertura de banda). O backtest **roda** com dados reais na máquina do usuário (martj42 via `--download`); até lá, as métricas são exercitadas em testes. Parâmetros `[a calibrar]`.
 
 ## Decisões tomadas (resumo — detalhe em [[Decisoes tecnicas]])
 - Contrato congelado v5.0; mudar fórmula = nova versão.
@@ -55,34 +55,4 @@ python -m pytest -q                 # 29 testes
 Detalhe e status dos módulos: [[Codigo (estrutura)]].
 
 ## ▶ Próxima tarefa a executar
-**[P0] Harness de backtest** — módulo `backtest_harness`. Walk-forward point-in-time, métricas (Brier/RPS/LogLoss) vs uniforme/Elo, bootstrap pareado + **portão por termo**. Card em [[BACKLOG]]. Aceite: Brier < uniforme com IC; portão rejeita termo nulo (lógica já validada no toy de [[camada2-baseline-plano-v1]] §6). **É aqui que o sistema deixa de ser só coerente e passa a ter (ou não) acurácia medida.**
-
-## 🔄 Retomada rápida (para um novo chat / após perda de contexto)
-Se você é um agente novo pegando o projeto, faça nesta ordem:
-1. Leia: este `CLAUDE.md` → [[Indice]] → [[BACKLOG]] (estado dos cards) → [[Codigo (estrutura)]] (status dos módulos).
-2. **Estado em 1 linha:** contrato matemático **v5.0** congelado; **Camada 2 em implementação** — baseline com **4/6 módulos prontos** (`ingest`, `elo_engine`, `features_pit`, `predictor`), **29 testes verdes**; faltam `backtest_harness` e `report`. **Nada backtestado ainda.**
-3. **Valide o ambiente:** `cd scm_analytics && pip install -r requirements.txt && python -m pytest -q` → esperar **29 passed**. Se uma edição `.py` não refletir, `rm -rf scm/__pycache__ tests/__pycache__` (quirk do sandbox).
-4. **Próxima tarefa:** seção acima (`backtest_harness`).
-5. **Regras de trabalho:** atualizar a documentação a cada etapa; escrever código de sistema pelo executor (bash) e rodar pytest; nada pago; probabilidades, nunca certezas. Detalhe em [[Decisoes tecnicas]].
-
-## Git / GitHub
-O versionamento roda **na máquina do usuário** — o sandbox não mantém `.git` na pasta montada (o FS do mount corrompe o config do git; ver [[Decisoes tecnicas]] D-14). `.gitignore` (raiz) já cobre cache, `.venv`, `*.sqlite`, snapshots e o workspace volátil do Obsidian.
-
-**Setup inicial (1x, no PC, dentro da pasta do vault):**
-```
-git init -b main
-git add -A
-git commit -m "Projeto Copa 2026: vault + baseline Camada 2"
-```
-Criar o repo no GitHub e publicar **pelo terminal** com a GitHub CLI (`gh`):
-```
-gh auth login                                               # 1x, autentica via navegador
-gh repo create <repo> --private --source=. --remote=origin --push
-```
-Sem `gh`: crie um repo **vazio** em github.com/new e rode `git remote add origin <URL>` + `git push -u origin main`.
-
-**Sincronizar a cada etapa de código:**
-```
-git add -A && git commit -m "<mensagem>" && git push
-```
-O agente mantém o projeto **commit-ready** e fornece a **mensagem de commit** ao fim de cada etapa; o `push` é executado pelo usuário (auth própria, persistente).
+**[P1] Relatório (`report`)** — **último módulo do baseline**. Reliability diagrams + cobertura de banda a partir das saídas do `backtest_harness` (matplotlib). Card em [[BACKLOG

@@ -23,9 +23,4 @@ Registro curto de *por que* cada escolha. Vivo — append quando algo for decidi
 | D-11 | **Ingest idempotente por `natural_key`** (date\|home\|away\|tournament) | rodar a ingestão N vezes não duplica (`INSERT OR IGNORE`) |
 | D-12 | **Pular jogos sem placar na ingestão** | fixtures futuras não entram em `matches` → sem nulos em chaves |
 | D-13 | **Testes sem rede (fixtures); download só na máquina do usuário** | testes determinísticos; snapshot offline preserva "nada lê a internet no cálculo" |
-| D-14 | **Versionamento git no PC do usuário; push manual** | o sandbox **não mantém `.git`** na pasta montada (o FS do mount corrompe o config do git) e não há conector de GitHub no registro. Decisão (2026-06-16): o usuário roda `git`/`push` na própria máquina (auth persistente, sem token no chat); o agente mantém o projeto **commit-ready** e fornece a mensagem de commit a cada etapa. |
-
-## Achados de auditoria adotados ([[camada1-revisao-v5]])
-A1 mercados Poisson-condicionais · A2 cobertura na leitura Elo-direto · B2 altitude×mando separados · B4 σ_dr calibrado isolado.
-
-[[BACKLOG]] · [[MODELO_FINAL]] · [[CLAUDE]]
+| D-14 | **Versionamento git no PC do usuário; push manual** | o sandbox **não mantém `.git`** na pasta montada (o FS do mount corrompe o config do git) e não há conector de GitHub 

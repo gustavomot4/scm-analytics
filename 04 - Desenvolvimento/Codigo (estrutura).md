@@ -19,12 +19,14 @@ scm_analytics/
 │   ├── ingest.py       # martj42 -> SQLite (idempotente)
 │   ├── elo_engine.py   # Elo histórico + σ_R + rating pré-jogo (point-in-time)
 │   ├── features_pit.py # features point-in-time (forma, dr_adj, σ_dr) — anti look-ahead
-│   └── predictor.py    # GD/T_m -> Poisson + Elo-direto propagado -> P(V/E/D)+banda
+│   ├── predictor.py    # GD/T_m -> Poisson + Elo-direto propagado -> P(V/E/D)+banda
+│   └── backtest_harness.py # Brier/RPS/LogLoss + IC bootstrap + portão por termo
 ├── tests/
 │   ├── test_ingest.py        # 5 testes (M1)
 │   ├── test_elo_engine.py    # 9 testes (M2)
 │   ├── test_features_pit.py  # 6 testes (M3)
-│   └── test_predictor.py     # 9 testes (M4)
+│   ├── test_predictor.py     # 9 testes (M4)
+│   └── test_backtest_harness.py # 7 testes (M5)
 ├── dados/              # snapshots + scm.sqlite (gerados; .gitignore)
 ├── requirements.txt
 └── README.md
@@ -37,8 +39,8 @@ scm_analytics/
 | `elo_engine` | ✅ **pronto** (9 testes + E2E) | `we(100)=0.64` · mando · zero-sum · point-in-time · idempotente |
 | `features_pit` | ✅ **pronto** (6 testes + E2E) | **anti look-ahead** · forma adversário/recência · `dr_adj` · `σ_dr` |
 | `predictor` | ✅ **pronto** (9 testes + E2E) | reproduz Poisson manual · P∈[0,1] · propagação determinística · piso de λ |
-| `backtest_harness` | ◀ **próximo** | Brier<uniforme (IC); portão rejeita termo nulo |
-| `report` | pendente | reliability + cobertura de banda |
+| `backtest_harness` | ✅ **pronto** (7 testes) | Brier/RPS/LogLoss · IC bootstrap (seed) · portão aceita/rejeita |
+| `report` | ◀ **próximo** | reliability + cobertura de banda (último do baseline) |
 
 ## Como rodar
 ```bash
@@ -53,7 +55,4 @@ python -m pytest -q                # testes
 > **Nota (sandbox):** se uma edição em `.py` não refletir nos testes, limpe o bytecode — `rm -rf scm/__pycache__ tests/__pycache__` (ou rode com `PYTHONDONTWRITEBYTECODE=1`).
 
 ## Decisões ligadas
-[[Decisoes tecnicas|D-10 a D-13]]: pacote `scm`, idempotência por `natural_key`, pular jogos sem placar, testes sem rede.
-
-## Relacionado
-[[CLAUDE]] · [[BACKLOG]] · [[MODELO_FINAL]] · [[Esquema SQLite]] · [[camada2-baseline-plano-v1]]
+[[Decisoes te

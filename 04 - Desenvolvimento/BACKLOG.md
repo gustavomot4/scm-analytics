@@ -16,11 +16,11 @@ data: 2026-06-15
 - [x] **[M2] Motor Elo histórico** — módulo `scm/elo_engine.py`; **9 testes verdes** (`we(100)=0.64`, mando, zero-sum, **point-in-time**, idempotência); grava `match_ratings` (rating pré-jogo) + `ratings_current` (+σ_R/provisório). *Benchmark eloratings ±25 roda com dados reais na sua máquina.*
 - [x] **[M3] Features point-in-time** — módulo `scm/features_pit.py`; **6 testes verdes** incl. **anti look-ahead** (jogo futuro não altera feature passada); grava `match_features` (`dr_adj`, `σ_dr`, forma recência+adversário).
 - [x] **[M4] Preditor congelado** — módulo `scm/predictor.py`; **9 testes verdes** (reproduz a execução manual IRN×NZL no Poisson; P∈[0,1] e soma 1; **propagação encolhe favorito**; piso de λ); grava `predictions` (P(V/E/D), banda, λ, over/BTTS). Propagação **determinística** (reprodutível).
+- [x] **[M5] Harness de backtest** — módulo `scm/backtest_harness.py`; **7 testes verdes** (Brier/RPS/LogLoss; **portão aceita termo informativo e rejeita termo nulo**; bootstrap determinístico por seed); `evaluate()` testa Brier vs uniforme com IC.
 
 ## 🔜 Sprint 1 — Baseline ([[camada2-baseline-plano-v1]])
 
-- [ ] **[P0] ◀ PRÓXIMO** Harness de backtest + métricas + portão — *módulo:* `backtest_harness` · *dep:* predictor ✓ · *aceite:* Brier < uniforme com IC; **portão rejeita termo nulo**
-- [ ] **[P1]** Relatório + reliability diagrams — *módulo:* `report` · *dep:* harness · *aceite:* bins ≥20/faixa; cobertura de banda calculável
+- [ ] **[P1] ◀ PRÓXIMO** Relatório + reliability diagrams — *módulo:* `report` · *dep:* harness ✓ · *aceite:* bins ≥20/faixa; cobertura de banda calculável. **Último módulo do baseline.**
 
 ## 📋 Backlog — C2.5 (cada termo atrás do [[camada2-planejamento-v1|portão]])
 
@@ -34,5 +34,4 @@ data: 2026-06-15
 ## 📋 Backlog — Camadas 3–6
 
 - [ ] **[P2]** Detector de desfalques (JSON → σ) — Camada 3
-- [ ] **[P2]** Insights: Monte Carlo do torneio + cenários de classificação — Camada 5
-- [ ] **[P2]** Interface local — Camada 6
+- [ ] **[P2]** Insights: Mo
