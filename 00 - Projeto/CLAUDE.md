@@ -50,18 +50,18 @@ python -m scm.ingest                # -> dados/scm.sqlite (offline)
 python -m scm.elo_engine            # reconstrói o Elo
 python -m scm.features_pit          # features point-in-time
 python -m scm.predictor             # previsões -> tabela predictions
-python -m pytest -q                 # 43 testes
+python -m pytest -q                 # 46 testes
 ```
 Detalhe e status dos módulos: [[Codigo (estrutura)]].
 
 ## ▶ Próxima tarefa a executar
-**[P1] Calibrar coeficientes (C2.5, passo 1).** Rodar `python -m scm.calibrate --cutoff 2018-01-01` (grid treino/teste). **Adota se o ganho no teste tiver IC>0** (vira `v0.2`). Depois (passo 2): fatores ambientais um a um pelo portão (`compare()`). Card em [[BACKLOG]].
+**[P1] C2.5 passo 2 — fatores ambientais pelo portão.** Calibração (passo 1) feita: ganho desprezível, **v0.1 mantido** (D-17). Agora: **altitude (E1)** primeiro, começando por CONMEBOL (tabela de elevações, McSharry), com `compare()` decidindo (IC do ΔBrier não cruza zero). Requer ingerir dado de altitude. Card em [[BACKLOG]].
 
 ## 🔄 Retomada rápida (para um novo chat / após perda de contexto)
 Se você é um agente novo pegando o projeto, faça nesta ordem:
 1. Leia: este `CLAUDE.md` → [[Indice]] → [[BACKLOG]] (estado dos cards) → [[Codigo (estrutura)]] (status dos módulos).
-2. **Estado em 1 linha:** contrato **v5.0**; **Camada 2 — baseline VALIDADO no backtest real** (torneios n=2241: Brier 0,562 bate uniforme com IC), **43 testes**; **próximo = C2.5** (fatores ambientais atrás do portão).
-3. **Valide o ambiente:** `cd scm_analytics && pip install -r requirements.txt && python -m pytest -q` → esperar **43 passed**. Se uma edição `.py` não refletir, `rm -rf scm/__pycache__ tests/__pycache__` (quirk do sandbox).
+2. **Estado em 1 linha:** contrato **v5.0**; **Camada 2 — baseline VALIDADO no backtest real** (torneios n=2241: Brier 0,562 bate uniforme com IC), **46 testes**; **próximo = C2.5** (fatores ambientais atrás do portão).
+3. **Valide o ambiente:** `cd scm_analytics && pip install -r requirements.txt && python -m pytest -q` → esperar **46 passed**. Se uma edição `.py` não refletir, `rm -rf scm/__pycache__ tests/__pycache__` (quirk do sandbox).
 4. **Próxima tarefa:** seção acima (**C2.5**).
 5. **Regras de trabalho:** atualizar a documentação a cada etapa; escrever código de sistema pelo executor (bash) e rodar pytest; nada pago; probabilidades, nunca certezas. Detalhe em [[Decisoes tecnicas]].
 

@@ -25,10 +25,10 @@ data: 2026-06-15
 
 ## 📋 Backlog — C2.5 (cada termo atrás do [[camada2-planejamento-v1|portão]])
 
-- [ ] **[P1] ◀ PRÓXIMO** Calibrar coeficientes (`scm/calibrate.py`) — `python -m scm.calibrate --cutoff 2018-01-01`. Grid treino/teste; **adota só se o ganho no teste tiver IC>0** → vira `v0.2`.
+- [x] **Calibrar coeficientes (`scm/calibrate.py`)** — ganho no teste **+0,0013** (IC marginal) → **não adotado**; placeholders v5 confirmados quase ótimos (D-17). v0.1 mantido.
 
 - [ ] **[P1]** Calibrar [[Mando de campo|mando (E2)]] separado de altitude — *dep:* baseline · *aceite:* ΔBrier com IC>0 **ou remover**; θ_alt e mando identificáveis (B2)
-- [ ] **[P1]** [[Ajustes ambientais|Altitude (E1) + calor (E3)]] juntos — *dep:* baseline · *aceite:* IC que não cruza zero; calibrados em conjunto
+- [ ] **[P1] ◀ PRÓXIMO** [[Ajustes ambientais|Altitude (E1)]] — começar por CONMEBOL (tabela de elevações; McSharry); termo GD_alt atrás do portão (`compare()` no recorte). *Requer dado de altitude.*
 - [ ] **[P1]** Piso de [[Ajustes ambientais|bola parada (E4)]] — *dep:* StatsBomb · *aceite:* fecha o gap BTTS observado; IC>0
 - [ ] **[P2]** Fuso (E5) + descanso (E6) em `σ_ajuste` — *dep:* baseline · *aceite:* melhora **cobertura da banda**, não o ponto
 - [ ] **[P2]** [[xG preditivo|xG]] prior + Dixon-Coles + reconciliar as duas P(E) — *dep:* StatsBomb · *aceite:* recomputa V/E/D/over/BTTS coerentes
