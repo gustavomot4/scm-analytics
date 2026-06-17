@@ -79,3 +79,12 @@ def test_evaluate_integration(conn):
     assert m["n"] == 3
     assert 0.0 <= m["brier"] <= 2.0
     assert "bate_uniforme_com_ic" in m            # invariante calculado (valor depende dos dados)
+
+
+def test_major_filter(conn):
+    # 1 jogo de torneio (WC) + 1 amistoso -> only_major conta só o de torneio
+    _match(conn, "2018-06-20", "Spain", "Iran", 1, 0, "FIFA World Cup")
+    _match(conn, "2019-03-01", "Spain", "Iran", 2, 0, "Friendly")
+    elo.run(conn); fp.run(conn); pred.run(conn)
+    assert bh.evaluate(conn, pred.MODEL_VERSION, B=500)["n"] == 2
+    assert bh.evaluate(conn, pred.MODEL_VERSION, B=500, only_major=True)["n"] == 1

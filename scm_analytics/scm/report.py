@@ -16,13 +16,14 @@ from . import backtest_harness as bh
 from .ingest import DEFAULT_DB
 
 
-def _scored(conn, versao: str) -> list:
-    rows = conn.execute(
-        """SELECT p.p_v, p.band_pv_lo, p.band_pv_hi, m.home_score, m.away_score
-           FROM predictions p JOIN matches m USING (match_id)
-           WHERE p.versao_modelo = ?""",
-        (versao,),
-    ).fetchall()
+def _scored(conn, versao: str, only_major: bool = False) -> list:
+    q = ("SELECT p.p_v, p.band_pv_lo, p.band_pv_hi, m.home_score, m.away_score "
+         "FROM predictions p JOIN matches m USING (match_id) WHERE p.versao_modelo = ?")
+    params = [versao]
+    if only_major:
+        q += " AND m.tournament IN (%s)" % ",".join("?" * len(bh.MAJOR))
+        params += list(bh.MAJOR)
+    rows = conn.execute(q, params).fetchall()
     return [
         {"p_v": r["p_v"], "lo": r["band_pv_lo"], "hi": r["band_pv_hi"],
          "home_won": 1 if r["home_score"] > r["away_score"] else 0}
@@ -75,10 +76,10 @@ def band_coverage(items: list) -> dict:
     }
 
 
-def summary(conn, versao: str) -> dict:
-    items = _scored(conn, versao)
+def summary(conn, versao: str, only_major: bool = False) -> dict:
+    items = _scored(conn, versao, only_major=only_major)
     return {
-        "metrics": bh.evaluate(conn, versao) if items else {"n": 0},
+        "metrics": bh.evaluate(conn, versao, only_major=only_major) if items else {"n": 0},
         "reliability": reliability_bins(items),
         "calibration_error": calibration_error(items),
         "coverage": band_coverage(items),
@@ -107,12 +108,13 @@ def main(argv=None) -> int:
     p.add_argument("--db", default=str(DEFAULT_DB))
     p.add_argument("--versao", default="baseline-v0.1")
     p.add_argument("--png", default=None, help="salva reliability diagram (requer matplotlib)")
+    p.add_argument("--major", action="store_true", help="só torneios (WC/Euro/Copa América)")
     args = p.parse_args(argv)
     if not Path(args.db).exists():
         print(f"[erro] SQLite não encontrado: {args.db}. Rode o pipeline antes.")
         return 1
     conn = db.connect(args.db)
-    s = summary(conn, args.versao)
+    s = summary(conn, args.versao, only_major=args.major)
     if s["metrics"].get("n", 0) == 0:
         print(f"sem previsões p/ versão {args.versao}")
         return 1

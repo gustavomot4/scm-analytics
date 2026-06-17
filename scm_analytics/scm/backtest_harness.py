@@ -22,6 +22,8 @@ from .ingest import DEFAULT_DB
 
 _TARGET = {"V": (1.0, 0.0, 0.0), "E": (0.0, 1.0, 0.0), "D": (0.0, 0.0, 1.0)}
 UNIFORM = {"p_v": 1 / 3, "p_e": 1 / 3, "p_d": 1 / 3}
+# torneios comparáveis a 2026 (finais; exclui eliminatórias) — desenho C2 §2.2
+MAJOR = ("FIFA World Cup", "UEFA Euro", "Copa América", "Copa America")
 
 
 def outcome_of(home_score: int, away_score: int) -> str:
@@ -55,13 +57,14 @@ def rps(p: dict, o: str) -> float:
     return 0.5 * (c1 * c1 + c2 * c2)
 
 
-def load_scored(conn, versao: str) -> list:
-    rows = conn.execute(
-        """SELECT p.p_v, p.p_e, p.p_d, m.home_score, m.away_score
-           FROM predictions p JOIN matches m USING (match_id)
-           WHERE p.versao_modelo = ?""",
-        (versao,),
-    ).fetchall()
+def load_scored(conn, versao: str, only_major: bool = False) -> list:
+    q = ("SELECT p.p_v, p.p_e, p.p_d, m.home_score, m.away_score "
+         "FROM predictions p JOIN matches m USING (match_id) WHERE p.versao_modelo = ?")
+    params = [versao]
+    if only_major:
+        q += " AND m.tournament IN (%s)" % ",".join("?" * len(MAJOR))
+        params += list(MAJOR)
+    rows = conn.execute(q, params).fetchall()
     out = []
     for r in rows:
         o = outcome_of(r["home_score"], r["away_score"])
@@ -100,8 +103,8 @@ def gate(delta_per_match: list, B: int = 10000, seed: int = 12345) -> dict:
     return {"mean": mean, "ic_lo": lo, "ic_hi": hi, "keep": lo > 0}
 
 
-def evaluate(conn, versao: str, B: int = 10000, seed: int = 12345) -> dict:
-    items = load_scored(conn, versao)
+def evaluate(conn, versao: str, B: int = 10000, seed: int = 12345, only_major: bool = False) -> dict:
+    items = load_scored(conn, versao, only_major=only_major)
     m = metrics(items)
     m["versao"] = versao
     if not items:
@@ -138,12 +141,13 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(description="Backtest: métricas + IC vs uniforme.")
     p.add_argument("--db", default=str(DEFAULT_DB))
     p.add_argument("--versao", default="baseline-v0.1")
+    p.add_argument("--major", action="store_true", help="só torneios (WC/Euro/Copa América)")
     args = p.parse_args(argv)
     if not Path(args.db).exists():
         print(f"[erro] SQLite não encontrado: {args.db}. Rode o pipeline antes.")
         return 1
     conn = db.connect(args.db)
-    m = evaluate(conn, args.versao)
+    m = evaluate(conn, args.versao, only_major=args.major)
     conn.close()
     if m.get("n", 0) == 0:
         print(f"sem previsões p/ versão {args.versao}")
