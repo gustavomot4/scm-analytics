@@ -50,9 +50,15 @@ python -m scm.ingest                # -> dados/scm.sqlite (offline)
 python -m scm.elo_engine            # reconstrói o Elo
 python -m scm.features_pit          # features point-in-time
 python -m scm.predictor             # previsões -> tabela predictions
-python -m pytest -q                 # 54 testes
+python -m pytest -q                 # 58 testes
 ```
-Detalhe e status dos módulos: [[Codigo (estrutura)]].
+**Prever um jogo específico** (porta da frente — usa o Elo atual):
+```
+python -m scm.predict_match "Brazil" "Argentina"               # sede neutra
+python -m scm.predict_match "Mexico" "Germany" --city "Mexico City"   # altitude
+python -m scm.predict_match "United States" "England" --mando 40      # anfitrião 2026
+```
+Nomes em inglês (padrão martj42); se errar, ele sugere. Detalhe: [[Codigo (estrutura)]].
 
 ## ▶ Estado: CONSOLIDADO
 **C2.5 fechado** nos fatores de bom custo-benefício. Modelo atual e recomendado: **`baseline-v0.2-altitude`** (validado + altitude). **Sem tarefa ativa.** Futuro **opcional** (retorno decrescente): bola parada (E4, StatsBomb), descanso (E6, σ), xG/Dixon-Coles, afinação de pesos. Para **previsões de 2026**: rodar o pipeline e **registrar antes do kickoff** ([[Registro de previsoes]], imutável).
@@ -60,8 +66,8 @@ Detalhe e status dos módulos: [[Codigo (estrutura)]].
 ## 🔄 Retomada rápida (para um novo chat / após perda de contexto)
 Se você é um agente novo pegando o projeto, faça nesta ordem:
 1. Leia: este `CLAUDE.md` → [[Indice]] → [[BACKLOG]] (estado dos cards) → [[Codigo (estrutura)]] (status dos módulos).
-2. **Estado em 1 linha:** **CONSOLIDADO** em `baseline-v0.2-altitude` — baseline validado (torneios Brier 0,562 bate uniforme com IC) + altitude adotada; calor/calibração barrados pelo portão; **54 testes**; tags `v1.0`/`v1.1` no GitHub.
-3. **Valide o ambiente:** `cd scm_analytics && pip install -r requirements.txt && python -m pytest -q` → esperar **54 passed**. Se uma edição `.py` não refletir, `rm -rf scm/__pycache__ tests/__pycache__` (quirk do sandbox).
+2. **Estado em 1 linha:** **CONSOLIDADO** em `baseline-v0.2-altitude` — baseline validado (torneios Brier 0,562 bate uniforme com IC) + altitude adotada; calor/calibração barrados pelo portão; **58 testes**; tags `v1.0`/`v1.1` no GitHub.
+3. **Valide o ambiente:** `cd scm_analytics && pip install -r requirements.txt && python -m pytest -q` → esperar **58 passed**. Se uma edição `.py` não refletir, `rm -rf scm/__pycache__ tests/__pycache__` (quirk do sandbox).
 4. **Próxima tarefa:** seção acima (**C2.5**).
 5. **Regras de trabalho:** atualizar a documentação a cada etapa; escrever código de sistema pelo executor (bash) e rodar pytest; nada pago; probabilidades, nunca certezas. Detalhe em [[Decisoes tecnicas]].
 

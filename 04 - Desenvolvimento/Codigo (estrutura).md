@@ -24,7 +24,8 @@ scm_analytics/
 │   ├── report.py       # calibração (reliability/ECE) + cobertura de banda
 │   ├── calibrate.py    # [C2.5] grid treino/teste dos coeficientes + portão de adoção
 │   ├── altitude.py     # [C2.5/E1] termo GD_alt (McSharry) + portão por subconjunto
-│   └── heat.py         # [C2.5/E3] WBGT (Open-Meteo) + termo de calor + portão over/under
+│   ├── heat.py         # [C2.5/E3] WBGT (Open-Meteo) + termo de calor + portão over/under
+│   └── predict_match.py # PORTA DA FRENTE: prevê um confronto (Elo atual + mando/altitude)
 ├── tests/
 │   ├── test_ingest.py        # 5 testes (M1)
 │   ├── test_elo_engine.py    # 9 testes (M2)
@@ -34,7 +35,8 @@ scm_analytics/
 │   ├── test_report.py        # 6 testes (M6)
 │   ├── test_calibrate.py     # 3 testes (C2.5)
 │   ├── test_altitude.py      # 3 testes (E1)
-│   └── test_heat.py          # 4 testes (E3)
+│   ├── test_heat.py          # 4 testes (E3)
+│   └── test_predict_match.py # 4 testes (porta da frente)
 ├── dados/              # snapshots + scm.sqlite (gerados; .gitignore)
 ├── requirements.txt
 └── README.md
