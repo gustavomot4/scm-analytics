@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import argparse
 import math
-import random
+import numpy as np
 from pathlib import Path
 
 from . import db
@@ -82,16 +82,15 @@ def metrics(items: list) -> dict:
 
 
 def _boot_ci(values: list, B: int = 10000, seed: int = 12345, lo: float = 0.025, hi: float = 0.975):
-    rng = random.Random(seed)
-    n = len(values)
-    means = []
-    for _ in range(B):
-        s = 0.0
-        for _ in range(n):
-            s += values[rng.randrange(n)]
-        means.append(s / n)
+    """IC por bootstrap, vetorizado (numpy). Seed fixa -> reprodutível."""
+    arr = np.asarray(values, dtype=float)
+    n = arr.size
+    rng = np.random.default_rng(seed)
+    means = np.empty(B)
+    for i in range(B):
+        means[i] = arr[rng.integers(0, n, n)].mean()
     means.sort()
-    return means[int(lo * B)], means[int(hi * B)]
+    return float(means[int(lo * B)]), float(means[int(hi * B)])
 
 
 def gate(delta_per_match: list, B: int = 10000, seed: int = 12345) -> dict:
