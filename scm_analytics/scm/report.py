@@ -14,6 +14,7 @@ from pathlib import Path
 from . import db
 from . import backtest_harness as bh
 from .ingest import DEFAULT_DB
+from .predictor import MODEL_VERSION as _MODEL
 
 
 def _scored(conn, versao: str, only_major: bool = False) -> list:
@@ -106,7 +107,7 @@ def save_reliability_png(conn, versao: str, path) -> str:
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description="Relatório de calibração + cobertura de banda.")
     p.add_argument("--db", default=str(DEFAULT_DB))
-    p.add_argument("--versao", default="baseline-v0.1")
+    p.add_argument("--versao", default=_MODEL)
     p.add_argument("--png", default=None, help="salva reliability diagram (requer matplotlib)")
     p.add_argument("--major", action="store_true", help="só torneios (WC/Euro/Copa América)")
     args = p.parse_args(argv)

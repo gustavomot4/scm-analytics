@@ -28,7 +28,8 @@ data: 2026-06-15
 - [x] **Calibrar coeficientes (`scm/calibrate.py`)** — ganho no teste **+0,0013** (IC marginal) → **não adotado**; placeholders v5 confirmados quase ótimos (D-17). v0.1 mantido.
 
 - [ ] **[P1]** Calibrar [[Mando de campo|mando (E2)]] separado de altitude — *dep:* baseline · *aceite:* ΔBrier com IC>0 **ou remover**; θ_alt e mando identificáveis (B2)
-- [ ] **[P1] ◀ PRÓXIMO** [[Ajustes ambientais|Altitude (E1)]] — termo `GD_alt` **construído** (`scm/altitude.py`; tabela pública de elevações [verificar]). **Rodar `python -m scm.altitude`**: o portão mantém SSE o IC do ΔBrier nos jogos de altitude não cruza zero.
+- [x] **[[Ajustes ambientais|Altitude (E1)]] ADOTADA (v0.2)** — portão **+0,0491** IC[+0,028,+0,070] em 554 jogos → ativa no pipeline (D-18).
+- [ ] **[P1] ◀ PRÓXIMO** [[Ajustes ambientais|Calor (E3)]] — `T_m·(1−κ_heat·WBGT)`; **requer dado de clima** (Open-Meteo Archive por sede/horário). Atrás do portão.
 - [ ] **[P1]** Piso de [[Ajustes ambientais|bola parada (E4)]] — *dep:* StatsBomb · *aceite:* fecha o gap BTTS observado; IC>0
 - [ ] **[P2]** Fuso (E5) + descanso (E6) em `σ_ajuste` — *dep:* baseline · *aceite:* melhora **cobertura da banda**, não o ponto
 - [ ] **[P2]** [[xG preditivo|xG]] prior + Dixon-Coles + reconciliar as duas P(E) — *dep:* StatsBomb · *aceite:* recomputa V/E/D/over/BTTS coerentes

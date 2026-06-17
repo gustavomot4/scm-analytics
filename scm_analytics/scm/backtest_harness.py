@@ -19,6 +19,7 @@ from pathlib import Path
 
 from . import db
 from .ingest import DEFAULT_DB
+from .predictor import MODEL_VERSION as _MODEL
 
 _TARGET = {"V": (1.0, 0.0, 0.0), "E": (0.0, 1.0, 0.0), "D": (0.0, 0.0, 1.0)}
 UNIFORM = {"p_v": 1 / 3, "p_e": 1 / 3, "p_d": 1 / 3}
@@ -140,7 +141,7 @@ def compare(conn, versao_a: str, versao_b: str, B: int = 10000, seed: int = 1234
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description="Backtest: métricas + IC vs uniforme.")
     p.add_argument("--db", default=str(DEFAULT_DB))
-    p.add_argument("--versao", default="baseline-v0.1")
+    p.add_argument("--versao", default=_MODEL)
     p.add_argument("--major", action="store_true", help="só torneios (WC/Euro/Copa América)")
     args = p.parse_args(argv)
     if not Path(args.db).exists():

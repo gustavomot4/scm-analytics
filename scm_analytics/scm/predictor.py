@@ -21,7 +21,7 @@ from . import db
 from .elo_engine import we
 from .ingest import DEFAULT_DB
 
-MODEL_VERSION = "baseline-v0.1"
+MODEL_VERSION = "baseline-v0.2-altitude"
 
 
 @dataclass(frozen=True)
@@ -143,14 +143,22 @@ def predict(dr: float, sigma_dr: float, p: PredictParams = PredictParams(),
 
 
 def run(conn, params: PredictParams = PredictParams()) -> dict:
+    from .altitude import gd_alt  # import tardio (evita ciclo predictor<->altitude)
     db.init_schema(conn)
     if conn.execute("SELECT COUNT(*) FROM match_features").fetchone()[0] == 0:
         raise RuntimeError("match_features vazio — rode features_pit.run primeiro.")
     conn.execute("DELETE FROM predictions WHERE versao_modelo = ?", (MODEL_VERSION,))
-    rows = conn.execute("SELECT match_id, dr_adj, sigma_dr FROM match_features").fetchall()
+    rows = conn.execute(
+        """SELECT mf.match_id, mf.dr_adj, mf.sigma_dr, m.city,
+                  th.name AS home, ta.name AS away
+           FROM match_features mf JOIN matches m USING (match_id)
+           JOIN teams th ON th.team_id = m.home_team_id
+           JOIN teams ta ON ta.team_id = m.away_team_id"""
+    ).fetchall()
     n = 0
     for r in rows:
-        pr = predict(r["dr_adj"], r["sigma_dr"], params)
+        ga = gd_alt(r["city"], r["home"], r["away"])
+        pr = predict(r["dr_adj"], r["sigma_dr"], params, gd_alt=ga)
         conn.execute(
             """INSERT OR REPLACE INTO predictions
                (match_id, versao_modelo, p_v, p_e, p_d, band_pv_lo, band_pv_hi,

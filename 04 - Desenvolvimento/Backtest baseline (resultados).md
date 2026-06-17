@@ -34,3 +34,8 @@ Split treino/teste por torneios (cutoff 2018-01-01; treino n=1905, teste n=336),
 - Melhores coeficientes ≈ placeholders (θ=0,45 e draw_base=0,27 **não mudaram**; κ 0,10→0,15, T_base 2,6→2,4, w_poisson 0,56→0,65).
 - Brier teste: placeholder 0,5857 → calibrado 0,5844. **Ganho +0,0013, IC95 [+0,0001, +0,0025]** — passa o portão por um fio, mas é **praticamente nulo**.
 - **Decisão (ver D-17): manter v0.1.** Os placeholders da v5 estão confirmados como quase ótimos; não vale churn de versão por +0,0013. `calibrate.py` fica como ferramenta para re-checar quando a base crescer.
+
+
+## Fatores ambientais (C2.5) — pelo portão
+- **Altitude (E1): ADOTADA.** `python -m scm.altitude` → ganho de Brier **+0,0491**, IC95 [+0,028, +0,070] nos **554 jogos de altitude** (La Paz/Quito/Bogotá/CDMX), θ=0,5 (McSharry). Forte e robusto mesmo após o Elo. Modelo passa a **`baseline-v0.2-altitude`** (gd_alt ativo; =0 fora de altitude).
+- **Calor (E3), bola parada (E4):** próximos, cada um atrás do portão.

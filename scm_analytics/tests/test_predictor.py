@@ -102,3 +102,18 @@ def test_run_idempotent(conn):
     pred.run(conn)
     pred.run(conn)                   # de novo: não duplica (PK match_id+versao)
     assert conn.execute("SELECT COUNT(*) FROM predictions").fetchone()[0] == 1
+
+
+def test_run_applies_altitude(conn):
+    # mesmo dr/σ, mas um jogo em La Paz (altitude) e outro ao nível do mar
+    for date, city in [("2013-03-22", "La Paz"), ("2013-06-01", "Rio")]:
+        h = db.get_or_create_team(conn, "Bolivia"); a = db.get_or_create_team(conn, "Brazil")
+        conn.execute("""INSERT INTO matches (date,home_team_id,away_team_id,home_score,away_score,
+                        tournament,city,neutral,natural_key) VALUES (?,?,?,?,?,?,?,0,?)""",
+                     (date, h, a, 1, 1, "FIFA World Cup qualification", city, f"{date}|BOL|BRA|{city}"))
+    conn.commit()
+    elo.run(conn); fp.run(conn); pred.run(conn)
+    pv = dict(conn.execute("""SELECT m.city, p.p_v FROM predictions p JOIN matches m USING(match_id)
+                              WHERE p.versao_modelo=?""", (pred.MODEL_VERSION,)).fetchall())
+    # em La Paz a Bolívia (mandante adaptada) deve ter P(V) MAIOR que no Rio
+    assert pv["La Paz"] > pv["Rio"]

@@ -26,3 +26,7 @@ Entram como **incerteza** ([[Incerteza e propagacao]]), **não** como placar.
 
 ## Relacionado
 [[McSharry 2007 (altitude)]] · [[Bola parada (Opta)]] · [[Mando de campo]] · contrato [[camada1-planejamento-v5]] §3.11, §3.13
+
+
+## Atualização (2026-06-17)
+**Altitude (E1): ADOTADA** — passou o portão (+0,049 de Brier, IC [+0,028, +0,070] em 554 jogos de altitude; θ=0,5 McSharry). Ativa no `predictor` (modelo `baseline-v0.2-altitude`), via `scm/altitude.py`; `gd_alt=0` fora de sedes altas. **Calor (E3)** e **bola parada (E4)** seguem como candidatos atrás do portão. Ver [[Backtest baseline (resultados)]] e [[Decisoes tecnicas]] D-18.

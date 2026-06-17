@@ -16,7 +16,7 @@ Motor matemático auditável (Elo → Poisson → ensemble), validado por **back
 ## Estado atual
 **Planejamento (congelado):** contrato matemático **v5.0** ([[camada1-planejamento-v5]]), auditado ([[camada1-revisao-v5]]) e autocontido ([[camada1-apendice-formas-v5]]); design do backtest ([[camada2-planejamento-v1]]); plano de build ([[camada2-baseline-plano-v1]]); 9 execuções manuais ([[06 - Analises]]); registro imutável ([[Registro de previsoes]]).
 **Código (Camada 2):** **baseline COMPLETO — 6/6 módulos** (`ingest`, `elo_engine`, `features_pit`, `predictor`, `backtest_harness`, `report`), **42 testes**, pipeline E2E rodando — ver [[Codigo (estrutura)]].
-**✅ Baseline VALIDADO** (backtest real, point-in-time): torneios n=2241 Brier 0,562 bate uniforme com IC [+0,089,+0,120], ECE 0,023, banda dentro — ver [[Backtest baseline (resultados)]]. **Falta:** **C2.5** — fatores ambientais (altitude/calor/bola parada) um a um **atrás do portão**; comparar vs **Elo-público**; opcional calibrar coeficientes. Parâmetros `[a calibrar]`.
+**✅ Baseline VALIDADO** (torneios n=2241 Brier 0,562 bate uniforme com IC; ECE 0,023). **Altitude (E1) ADOTADA → modelo `baseline-v0.2-altitude`** (portão +0,049, D-18) — ver [[Backtest baseline (resultados)]]. **Falta:** **C2.5** — fatores ambientais (altitude/calor/bola parada) um a um **atrás do portão**; comparar vs **Elo-público**; opcional calibrar coeficientes. Parâmetros `[a calibrar]`.
 
 ## Decisões tomadas (resumo — detalhe em [[Decisoes tecnicas]])
 - Contrato congelado v5.0; mudar fórmula = nova versão.
@@ -50,18 +50,18 @@ python -m scm.ingest                # -> dados/scm.sqlite (offline)
 python -m scm.elo_engine            # reconstrói o Elo
 python -m scm.features_pit          # features point-in-time
 python -m scm.predictor             # previsões -> tabela predictions
-python -m pytest -q                 # 46 testes
+python -m pytest -q                 # 50 testes
 ```
 Detalhe e status dos módulos: [[Codigo (estrutura)]].
 
 ## ▶ Próxima tarefa a executar
-**[P1] C2.5 passo 2 — portão da altitude (E1).** Termo `GD_alt` construído (`scm/altitude.py`, McSharry). **Rodar `python -m scm.altitude`**: o portão decide se a altitude agrega **além** do que o Elo já captura (mantém SSE IC do ΔBrier nos jogos de altitude não cruza zero). Depois: calor (E3), bola parada (E4). Card em [[BACKLOG]].
+**[P1] C2.5 — calor (E3).** **Altitude (E1) já ADOTADA** (v0.2; portão +0,049, D-18). Próximo fator: **calor** `T_m·(1−κ_heat·WBGT)` — requer dado de clima (Open-Meteo Archive por sede/horário), atrás do portão. Card em [[BACKLOG]].
 
 ## 🔄 Retomada rápida (para um novo chat / após perda de contexto)
 Se você é um agente novo pegando o projeto, faça nesta ordem:
 1. Leia: este `CLAUDE.md` → [[Indice]] → [[BACKLOG]] (estado dos cards) → [[Codigo (estrutura)]] (status dos módulos).
-2. **Estado em 1 linha:** contrato **v5.0**; **Camada 2 — baseline VALIDADO no backtest real** (torneios n=2241: Brier 0,562 bate uniforme com IC), **46 testes**; **próximo = C2.5** (fatores ambientais atrás do portão).
-3. **Valide o ambiente:** `cd scm_analytics && pip install -r requirements.txt && python -m pytest -q` → esperar **46 passed**. Se uma edição `.py` não refletir, `rm -rf scm/__pycache__ tests/__pycache__` (quirk do sandbox).
+2. **Estado em 1 linha:** contrato **v5.0**; **Camada 2 — baseline VALIDADO no backtest real** (torneios n=2241: Brier 0,562 bate uniforme com IC), **50 testes**; **próximo = C2.5** (fatores ambientais atrás do portão).
+3. **Valide o ambiente:** `cd scm_analytics && pip install -r requirements.txt && python -m pytest -q` → esperar **50 passed**. Se uma edição `.py` não refletir, `rm -rf scm/__pycache__ tests/__pycache__` (quirk do sandbox).
 4. **Próxima tarefa:** seção acima (**C2.5**).
 5. **Regras de trabalho:** atualizar a documentação a cada etapa; escrever código de sistema pelo executor (bash) e rodar pytest; nada pago; probabilidades, nunca certezas. Detalhe em [[Decisoes tecnicas]].
 
