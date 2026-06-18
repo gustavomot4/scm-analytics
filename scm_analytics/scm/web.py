@@ -48,7 +48,6 @@ def create_app(db_path=None):
         if r.get("erro"):
             return jsonify({"erro": r["erro"], "sugestoes": r.get("sugestoes", [])})
         venue = f"Altitude — {city}" if city else (f"Mando +{mando:.0f}" if mando else "Sede neutra")
-        lbl = "alta" if r["conf"] >= 65 else ("média" if r["conf"] >= 40 else "baixa")
         return jsonify({
             "home": r["home"], "away": r["away"], "venue": venue,
             "elo_home": round(r["elo_home"]), "elo_away": round(r["elo_away"]),
@@ -57,7 +56,8 @@ def create_app(db_path=None):
             "band_lo": r["band_pv_lo"], "band_hi": r["band_pv_hi"],
             "lambda_a": r["lambda_a"], "lambda_b": r["lambda_b"],
             "p_over25": r["p_over25"], "p_btts": r["p_btts"],
-            "scores": r["poisson"]["top5"], "conf": r["conf"], "conf_label": lbl,
+            "scores": r["poisson"]["top5"], "conf": r["conf"], "conf_label": r["conf_label"],
+            "markets": r["markets"],
         })
 
     return app

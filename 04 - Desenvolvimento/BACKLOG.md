@@ -42,3 +42,4 @@ data: 2026-06-15
 - [ ] **[P2]** Detector de desfalques (JSON → σ) — Camada 3
 - [ ] **[P2]** Insights: Monte Carlo do torneio + cenários de classificação — Camada 5
 - [x] **Interface local (Camada 6) — ENTREGUE:** `scm/web.py` (Flask, UI de produto) + `predict_match`. Ver [[Como rodar o sistema]].
+- [x] **Mercados (Poisson) + confiança evoluída — ENTREGUE:** `predictor.markets` (over/under 0.5–4.5, totais, clean sheet, dupla chance, handicap, **quem marca 1º**) + confiança `reliab(p_max)·maturidade` calibrável (`calibrate_confidence`); na CLI e na interface. **73 testes.** [[Decisoes tecnicas|D-20]]/[[Decisoes tecnicas|D-21]].

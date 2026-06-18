@@ -78,6 +78,10 @@
   @media(max-width:680px){
     form.form{grid-template-columns:1fr 1fr} .cols{grid-template-columns:1fr} .stats{grid-template-columns:repeat(2,1fr)}
   }
+  .mkt{margin-top:16px}
+  .mkt-grid{display:grid; grid-template-columns:240px 1fr; gap:18px; margin-top:8px}
+  .hint{color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0; font-size:12px}
+  @media(max-width:560px){ .mkt-grid{grid-template-columns:1fr} }
 </style>
 </head>
 <body>
@@ -144,6 +148,18 @@
           </div>
         </div>
       </div>
+      <div class="mkt">
+        <div class="colhead">Mercados <span class="hint">— derivados do mesmo Poisson, sem novo modelo</span></div>
+        <div class="mkt-grid">
+          <div>
+            <table>
+              <thead><tr><th>Gols</th><th class="r">Over</th><th class="r">Under</th></tr></thead>
+              <tbody id="ou"></tbody>
+            </table>
+          </div>
+          <div class="stats" id="mkt2"></div>
+        </div>
+      </div>
       <div class="footer">Probabilidade, não certeza — não é recomendação de aposta.</div>
     </section>
   </main>
@@ -198,6 +214,20 @@
       ['Ambos marcam', (d.p_btts*100).toFixed(0) + '%'],
     ].map(([k,v]) => `<div class="stat"><div class="k">${k}</div><div class="v tnum">${v}</div></div>`).join('');
     $('scores').innerHTML = d.scores.map(s => `<tr><td class="tnum">${s[0]}</td><td class="r tnum">${(s[1]*100).toFixed(0)}%</td></tr>`).join('');
+    const m = d.markets || {over:{},under:{},first_to_score:{},double_chance:{},handicap:{}};
+    $('ou').innerHTML = ['0.5','1.5','2.5','3.5','4.5'].map(l =>
+      `<tr><td class="tnum">${l}</td><td class="r tnum">${(m.over[l]*100).toFixed(0)}%</td><td class="r tnum">${(m.under[l]*100).toFixed(0)}%</td></tr>`).join('');
+    const favH = d.p_v >= d.p_d, favHc = favH ? m.handicap['a_-1.5'] : m.handicap['b_-1.5'], favNm = favH ? d.home : d.away;
+    $('mkt2').innerHTML = [
+      ['Marca 1º ' + d.home, (m.first_to_score.a*100).toFixed(0)+'%'],
+      ['Marca 1º ' + d.away, (m.first_to_score.b*100).toFixed(0)+'%'],
+      ['Sem gols', (m.first_to_score.none*100).toFixed(0)+'%'],
+      ['Não sofre ' + d.home, (m.clean_sheet_a*100).toFixed(0)+'%'],
+      ['Não sofre ' + d.away, (m.clean_sheet_b*100).toFixed(0)+'%'],
+      ['Dupla 1X', (m.double_chance['1X']*100).toFixed(0)+'%'],
+      ['Dupla X2', (m.double_chance['X2']*100).toFixed(0)+'%'],
+      ['Vencer +2 ' + favNm, (favHc*100).toFixed(0)+'%'],
+    ].map(([k,v]) => `<div class="stat"><div class="k">${k}</div><div class="v tnum">${v}</div></div>`).join('');
     $('confbar').style.width = Math.round(d.conf) + '%';
     $('conflbl').innerHTML = '<b>' + Math.round(d.conf) + ' / 100</b> — ' + d.conf_label;
     $('result').classList.add('show');

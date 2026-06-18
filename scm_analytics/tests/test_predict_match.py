@@ -47,3 +47,24 @@ def test_mando_boosts_home(conn):
     base = pm.predict_match(conn, "Bolivia", "Brazil")
     mando = pm.predict_match(conn, "Bolivia", "Brazil", mando=80)
     assert mando["dr"] > base["dr"] and mando["p_v"] > base["p_v"]
+
+
+def test_confidence_escapes_old_cap_and_orders(conn):
+    # massacre entre times maduros deve dar confiança ALTA (acima do antigo teto ~68)
+    blow = pm.confidence(0.95, 0.03, 0.02, sigma_r_avg=40.0)
+    toss = pm.confidence(0.37, 0.33, 0.30, sigma_r_avg=40.0)
+    assert blow > toss
+    assert blow > 68            # sem o teto artificial antigo
+    assert pm.conf_label(blow) == "alta"
+
+
+def test_confidence_drops_with_rating_uncertainty(conn):
+    mature = pm.confidence(0.90, 0.06, 0.04, sigma_r_avg=40.0)
+    provis = pm.confidence(0.90, 0.06, 0.04, sigma_r_avg=160.0)
+    assert provis < mature       # rating incerto → confiança menor
+
+
+def test_predict_match_exposes_markets(conn):
+    r = pm.predict_match(conn, "Brazil", "Bolivia")
+    assert "markets" in r and "over" in r["markets"] and "first_to_score" in r["markets"]
+    assert 0.0 <= r["markets"]["over"]["2.5"] <= 1.0

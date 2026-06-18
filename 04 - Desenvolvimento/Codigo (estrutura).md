@@ -19,12 +19,13 @@ scm_analytics/
 │   ├── ingest.py       # martj42 -> SQLite (idempotente)
 │   ├── elo_engine.py   # Elo histórico + σ_R + rating pré-jogo (point-in-time)
 │   ├── features_pit.py # features point-in-time (forma, dr_adj, σ_dr) — anti look-ahead
-│   ├── predictor.py    # GD/T_m -> Poisson + Elo-direto propagado -> P(V/E/D)+banda
+│   ├── predictor.py    # GD/T_m -> Poisson + Elo-direto -> P(V/E/D)+banda + markets()
 │   ├── backtest_harness.py # Brier/RPS/LogLoss + IC bootstrap + portão por termo
 │   ├── report.py       # calibração (reliability/ECE) + cobertura de banda
 │   ├── calibrate.py    # [C2.5] grid treino/teste dos coeficientes + portão de adoção
 │   ├── altitude.py     # [C2.5/E1] termo GD_alt (McSharry) + portão por subconjunto
 │   ├── heat.py         # [C2.5/E3] WBGT (Open-Meteo) + termo de calor + portão over/under
+│   ├── calibrate_confidence.py # confiança ancorada na confiabilidade do backtest
 │   ├── predict_match.py # prevê um confronto (Elo atual + mando/altitude)
 │   ├── web.py          # INTERFACE WEB local (Flask: página + API /api/predict)
 │   └── templates/index.html  # UI (design de produto; sem cara de IA)
@@ -38,7 +39,9 @@ scm_analytics/
 │   ├── test_calibrate.py     # 3 testes (C2.5)
 │   ├── test_altitude.py      # 3 testes (E1)
 │   ├── test_heat.py          # 4 testes (E3)
-│   ├── test_predict_match.py # 4 testes (porta da frente)
+│   ├── test_predict_match.py # 7 testes (porta da frente + confiança)
+│   ├── test_markets.py        # 5 testes (mercados do Poisson)
+│   ├── test_calibrate_confidence.py # 3 testes (curva isotônica)
 │   └── test_web.py           # 4 testes (interface)
 ├── dados/              # snapshots + scm.sqlite (gerados; .gitignore)
 ├── requirements.txt
@@ -58,9 +61,10 @@ scm_analytics/
 | `altitude` | C2.5/E1 (3 testes) | termo GD_alt — **ADOTADO** (D-18) |
 | `heat` | C2.5/E3 (4 testes) | termo de calor — rejeitado (D-19) |
 | `predict_match` | porta da frente (4 testes) | prever um confronto (Elo atual) |
-| `web` | interface (4 testes) | app Flask local + UI de produto |
+| `web` | interface (4 testes) | app Flask local + UI de produto + mercados |
+| `calibrate_confidence` | confiança (3 testes) | curva isotônica do backtest → `meta` (D-20) |
 
-> **Sistema completo e validado — 62 testes.** Baseline + altitude (E1) adotada + `predict_match` + interface web. Backtest real: torneios Brier 0,562 batem o uniforme com IC. Guia: [[Como rodar o sistema]].
+> **Sistema completo e validado — 73 testes.** Baseline + altitude (E1) + `predict_match` + interface web + **mercados** (over/under 0.5–4.5, quem marca 1º, etc.) + **confiança calibrável**. Backtest real: torneios Brier 0,562 batem o uniforme com IC. Guia: [[Como rodar o sistema]].
 
 ## Como rodar
 ```bash

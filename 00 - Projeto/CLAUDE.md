@@ -15,7 +15,7 @@ Motor matemático auditável (Elo → Poisson → ensemble), validado por **back
 
 ## Estado atual
 **Planejamento (congelado):** contrato matemático **v5.0** ([[camada1-planejamento-v5]]), auditado ([[camada1-revisao-v5]]) e autocontido ([[camada1-apendice-formas-v5]]); design do backtest ([[camada2-planejamento-v1]]); plano de build ([[camada2-baseline-plano-v1]]); 9 execuções manuais ([[06 - Analises]]); registro imutável ([[Registro de previsoes]]).
-**Código:** baseline 6/6 + ferramentas C2.5 (`calibrate`/`altitude`/`heat`) + **`predict_match`** (prever um jogo) + **`web`** (interface gráfica). **62 testes**, pipeline E2E. Modelo `baseline-v0.2-altitude`. Ver [[Codigo (estrutura)]] e [[Como rodar o sistema]].
+**Código:** baseline 6/6 + ferramentas C2.5 (`calibrate`/`altitude`/`heat`) + **`predict_match`** (prever um jogo) + **`web`** (interface gráfica). **73 testes**, pipeline E2E. Modelo `baseline-v0.2-altitude`. Ver [[Codigo (estrutura)]] e [[Como rodar o sistema]].
 **✅ Baseline VALIDADO** (torneios n=2241 Brier 0,562 bate uniforme com IC; ECE 0,023). Modelo atual: **`baseline-v0.2-altitude`**. **Portão C2.5 (decididos):** altitude (E1) **✅ adotada** (+0,049, D-18) · calor (E3) **✗** (D-19) · calibração de coeficientes **✗** (D-17). Candidatos restantes **opcionais**: bola parada (E4, StatsBomb) e descanso (E6, σ). Ver [[Backtest baseline (resultados)]].
 
 ## Decisões tomadas (resumo — detalhe em [[Decisoes tecnicas]])
@@ -50,7 +50,7 @@ python -m scm.ingest                # -> dados/scm.sqlite (offline)
 python -m scm.elo_engine            # reconstrói o Elo
 python -m scm.features_pit          # features point-in-time
 python -m scm.predictor             # previsões -> tabela predictions
-python -m pytest -q                 # 62 testes
+python -m pytest -q                 # 73 testes
 ```
 **Prever um jogo específico** (porta da frente — usa o Elo atual):
 ```
@@ -71,7 +71,7 @@ Nomes em inglês (padrão martj42); se errar, ele sugere. Detalhe: [[Codigo (est
 ## 🔄 Retomada rápida (para um novo chat / após perda de contexto)
 Se você é um agente novo pegando o projeto, faça nesta ordem:
 1. Leia: este `CLAUDE.md` → [[Indice]] → [[BACKLOG]] (estado dos cards) → [[Codigo (estrutura)]] (status dos módulos).
-2. **Estado em 1 linha:** **CONSOLIDADO** em `baseline-v0.2-altitude` — baseline validado (torneios Brier 0,562 bate uniforme com IC) + altitude adotada; calor/calibração barrados pelo portão; **62 testes**; tags `v1.0`/`v1.1` no GitHub.
+2. **Estado em 1 linha:** **CONSOLIDADO** em `baseline-v0.2-altitude` — baseline validado (torneios Brier 0,562 bate uniforme com IC) + altitude adotada; calor/calibração barrados pelo portão; **73 testes**; tags `v1.0`/`v1.1` no GitHub.
 3. **Valide o ambiente:** `cd scm_analytics && pip install -r requirements.txt && python -m pytest -q` → esperar **62 passed**. Se uma edição `.py` não refletir, `rm -rf scm/__pycache__ tests/__pycache__` (quirk do sandbox).
 4. **Próxima tarefa:** seção acima (**C2.5**).
 5. **Regras de trabalho:** atualizar a documentação a cada etapa; escrever código de sistema pelo executor (bash) e rodar pytest; nada pago; probabilidades, nunca certezas. Detalhe em [[Decisoes tecnicas]].

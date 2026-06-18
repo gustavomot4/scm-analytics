@@ -60,9 +60,10 @@ Fixos até **≥30 jogos**; depois grid minimizando Brier, congelados por fase.
 ## 4. Outputs do sistema
 - **P(V/E/D)** + **banda** por percentis 16/84 (cobertura medida na leitura Elo-direto).
 - **λ_A, λ_B** (gols esperados).
-- **Over/Under 2.5** e **ambos marcam (BTTS)** — Poisson-condicionais.
+- **Mercados derivados do MESMO Poisson** (`predictor.markets`, sem novo modelo): **Over/Under 0.5–4.5**, **ambos marcam (BTTS)**, **total por time** (over 0.5/1.5), **não sofrer gol** (clean sheet), **dupla chance** (1X/12/X2), **handicap** (vencer por 2+) e **quem marca primeiro** (Poisson concorrente `λ_i/(λ_A+λ_B)`) + distribuição do total de gols. [[Decisoes tecnicas|D-21]].
 - **Top-5 placares** + "chance de NÃO ser o modal".
-- **Confiança** (0–100, com rótulo alta/média/baixa).
+- **Confiança** (0–100, rótulo alta/média/baixa) = `reliab(p_max)·maturidade(σ_R)`, calibrável contra o backtest ([[Confianca]], [[Decisoes tecnicas|D-20]]).
+- *Fora por ora:* **tempo do gol** (intervalos quentes) exige o minuto dos gols (`goalscorers.csv`) — candidato futuro.
 
 ## 5. Métricas de validação
 - **Brier Score** (forma-soma, máx 2) — meta **< uniforme 0.667** com IC que não cruza o baseline, e **≤ Elo público**.

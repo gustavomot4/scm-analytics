@@ -191,3 +191,53 @@ def main(argv=None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+def markets(lam_a: float, lam_b: float, max_goals: int = 10) -> dict:
+    """Mercados derivados da MESMA matriz Poisson (nada novo no modelo).
+
+    over/under (0.5–4.5), totais por time, não-sofrer-gol (clean sheet),
+    dupla chance, handicap (vencer por 2+), distribuição do total e
+    'quem marca primeiro' via Poisson concorrente:
+        P(A 1º) = λ_A/(λ_A+λ_B) · (1 − P(0 gol));  P(0 gol) = e^-(λ_A+λ_B).
+    O 'quem marca 1º' assume taxa de gols constante no tempo (aproximação).
+    """
+    pa = [_pois(i, lam_a) for i in range(max_goals + 1)]
+    pb = [_pois(j, lam_b) for j in range(max_goals + 1)]
+    total = [0.0] * (2 * max_goals + 1)
+    hcap_a2 = hcap_b2 = 0.0
+    for i in range(max_goals + 1):
+        for j in range(max_goals + 1):
+            pij = pa[i] * pb[j]
+            total[i + j] += pij
+            if i - j >= 2:
+                hcap_a2 += pij
+            elif j - i >= 2:
+                hcap_b2 += pij
+    pv = sum(pa[i] * pb[j] for i in range(max_goals + 1) for j in range(i))            # i>j
+    pe = sum(pa[k] * pb[k] for k in range(max_goals + 1))
+    pd = max(0.0, 1.0 - pv - pe)
+
+    def over(line):
+        return sum(total[k] for k in range(len(total)) if k > line)
+
+    lines = (0.5, 1.5, 2.5, 3.5, 4.5)
+    a0, b0 = pa[0], pb[0]
+    s = lam_a + lam_b
+    no_goal = math.exp(-s)
+    first_a = (lam_a / s) * (1 - no_goal) if s > 1e-9 else 0.0
+    first_b = (lam_b / s) * (1 - no_goal) if s > 1e-9 else 0.0
+    tg = [(str(k), total[k]) for k in range(5)] + [("5+", sum(total[5:]))]
+    return {
+        "over": {str(l): over(l) for l in lines},
+        "under": {str(l): 1.0 - over(l) for l in lines},
+        "btts": (1 - a0) * (1 - b0),
+        "team_a_over": {"0.5": 1 - a0, "1.5": max(0.0, 1 - a0 - pa[1])},
+        "team_b_over": {"0.5": 1 - b0, "1.5": max(0.0, 1 - b0 - pb[1])},
+        "clean_sheet_a": b0,   # A não sofre gol  = B faz 0
+        "clean_sheet_b": a0,   # B não sofre gol  = A faz 0
+        "double_chance": {"1X": pv + pe, "12": pv + pd, "X2": pe + pd},
+        "handicap": {"a_-1.5": hcap_a2, "b_-1.5": hcap_b2},   # vencer por 2+ gols
+        "first_to_score": {"a": first_a, "b": first_b, "none": no_goal},
+        "total_goals": tg,
+    }

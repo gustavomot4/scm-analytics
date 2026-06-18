@@ -38,8 +38,9 @@ Pronto — a base e as previsões estão no `dados/scm.sqlite`.
 ```
 python -m scm.backtest_harness --major   # Brier vs uniforme com IC (jogos de torneio)
 python -m scm.report --major             # calibração (reliability) + cobertura de banda
+python -m scm.calibrate_confidence       # ancora a confiança na confiabilidade medida (grava em meta)
 ```
-Esperado: Brier ~0,56 **< uniforme 0,667 com IC que não cruza zero**, bem calibrado.
+Esperado: Brier ~0,56 **< uniforme 0,667 com IC que não cruza zero**, bem calibrado. O `calibrate_confidence` imprime a curva de acerto por faixa e mostra que **confiança alta = mais acerto**.
 
 ## 4. Prever um jogo
 **No terminal:**
@@ -49,6 +50,8 @@ python -m scm.predict_match "Mexico" "Germany" --city "Mexico City"   # aplica a
 python -m scm.predict_match "United States" "England" --mando 40      # vantagem de anfitrião 2026
 ```
 Nomes em inglês (padrão martj42); se errar, o programa sugere ("Brasil" → "Brazil").
+
+A saída traz P(V/E/D)+banda, **over/under 0.5–4.5**, ambos marcam, **não sofrer gol**, **quem marca primeiro**, dupla chance, handicap, placares prováveis e a **confiança** (0–100). Tudo sai do mesmo Poisson — ver [[MODELO_FINAL]] §4.
 
 **Na interface gráfica (navegador):**
 ```
@@ -65,7 +68,7 @@ Depois, `predict_match`/`web` já usam o Elo atualizado. (Para automatizar, agen
 
 ## 6. Testes
 ```
-python -m pytest -q                 # 62 testes
+python -m pytest -q                 # 73 testes
 ```
 > Quirk de sandbox: se uma edição `.py` não refletir, `rm -rf scm/__pycache__ tests/__pycache__`.
 
@@ -74,7 +77,7 @@ python -m pytest -q                 # 62 testes
 |---|---|
 | Instalar deps | `pip install -r requirements.txt` |
 | Construir base | `ingest --download` → `ingest` → `elo_engine` → `features_pit` → `predictor` |
-| Validar | `backtest_harness --major` · `report --major` |
+| Validar | `backtest_harness --major` · `report --major` · `calibrate_confidence` |
 | Prever (terminal) | `predict_match "TimeA" "TimeB" [--city ... | --mando N]` |
 | Prever (interface) | `web` → http://127.0.0.1:5000 |
 | Atualizar | `ingest --download` → `ingest` → `elo_engine` |
@@ -84,6 +87,7 @@ python -m pytest -q                 # 62 testes
 - Coeficientes: `python -m scm.calibrate --cutoff 2018-01-01` (mantido v0.1 — D-17).
 - Altitude: `python -m scm.altitude` (**adotada** — D-18).
 - Calor: `python -m scm.heat --build-climatology` (lento) → `python -m scm.heat` (**rejeitado** — D-19).
+- Confiança: `python -m scm.calibrate_confidence` ancora a confiança no backtest (**adotado** — D-20).
 
 ## Problemas comuns
 - **"Python não encontrado"** → não instalado ou terminal não reaberto após o `winget install`.
