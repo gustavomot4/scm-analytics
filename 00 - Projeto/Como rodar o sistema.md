@@ -39,6 +39,8 @@ Pronto — a base e as previsões estão no `dados/scm.sqlite`.
 python -m scm.backtest_harness --major   # Brier vs uniforme com IC (jogos de torneio)
 python -m scm.report --major             # calibração (reliability) + cobertura de banda
 python -m scm.calibrate_confidence       # ancora a confiança na confiabilidade medida (grava em meta)
+python -m scm.report --btts --major      # diagnóstico do 'ambos marcam' (previsto vs real)
+python -m scm.estilo                      # PORTÃO do estilo (tendência de gols) na Brier de BTTS
 ```
 Esperado: Brier ~0,56 **< uniforme 0,667 com IC que não cruza zero**, bem calibrado. O `calibrate_confidence` imprime a curva de acerto por faixa e mostra que **confiança alta = mais acerto**.
 
@@ -62,13 +64,13 @@ Digite as duas seleções (autocompleta), escolha a sede e clique em Prever. Ctr
 ## 5. Atualizar com jogos recentes
 O sistema usa um **snapshot** (não se atualiza sozinho — ver [[Decisoes tecnicas]] D-03). Para pegar jogos novos, re-rode 3 comandos (idempotente, só adiciona o que é novo):
 ```
-python -m scm.ingest --download ; python -m scm.ingest ; python -m scm.elo_engine
+python -m scm.ingest --download ; python -m scm.ingest ; python -m scm.elo_engine ; python -m scm.features_pit ; python -m scm.predictor
 ```
 Depois, `predict_match`/`web` já usam o Elo atualizado. (Para automatizar, agende no Agendador de Tarefas do Windows.)
 
 ## 6. Testes
 ```
-python -m pytest -q                 # 73 testes
+python -m pytest -q                 # 83 testes
 ```
 > Quirk de sandbox: se uma edição `.py` não refletir, `rm -rf scm/__pycache__ tests/__pycache__`.
 
@@ -87,6 +89,8 @@ python -m pytest -q                 # 73 testes
 - Coeficientes: `python -m scm.calibrate --cutoff 2018-01-01` (mantido v0.1 — D-17).
 - Altitude: `python -m scm.altitude` (**adotada** — D-18).
 - Calor: `python -m scm.heat --build-climatology` (lento) → `python -m scm.heat` (**rejeitado** — D-19).
+- **Estilo (tendência de gols):** `python -m scm.estilo` roda o portão (Brier de BTTS); `python -m scm.estilo --list` lista as seleções mais ofensivas/defensivas. Preview num jogo: `predict_match "A" "B" --estilo`. Candidato — D-23.
+- **BTTS enviesado?** `python -m scm.report --btts --major` compara o 'ambos marcam' previsto com o real.
 - Confiança: `python -m scm.calibrate_confidence` ancora a confiança no backtest (**adotado** — D-20).
 
 ## Problemas comuns

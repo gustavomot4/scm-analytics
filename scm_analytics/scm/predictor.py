@@ -21,7 +21,7 @@ from . import db
 from .elo_engine import we
 from .ingest import DEFAULT_DB
 
-MODEL_VERSION = "baseline-v0.2-altitude"
+MODEL_VERSION = "baseline-v0.2.1-altitude"
 
 
 @dataclass(frozen=True)
@@ -54,8 +54,17 @@ def lambdas(dr: float, p: PredictParams, estilo_a: float = 1.0, estilo_b: float 
             gd_alt: float = 0.0, heat_factor: float = 1.0):
     gd = gd_of(dr, p) + gd_alt
     tm = tm_of(dr, p, estilo_a, estilo_b, heat_factor=heat_factor)
-    la = max(p.lambda_min, (tm + gd) / 2.0)
-    lb = max(p.lambda_min, (tm - gd) / 2.0)
+    la = (tm + gd) / 2.0
+    lb = (tm - gd) / 2.0
+    # piso de λ CONSERVANDO o total T_m (P01): se o piso eleva o azarão acima de
+    # (tm−λ), desconta do favorito p/ manter λ_A+λ_B = T_m sempre que tm ≥ 2·λ_min.
+    lmin = p.lambda_min
+    if lb < lmin:
+        lb = lmin
+        la = max(lmin, tm - lb)
+    elif la < lmin:
+        la = lmin
+        lb = max(lmin, tm - la)
     return la, lb
 
 

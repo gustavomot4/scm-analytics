@@ -52,6 +52,15 @@ def test_curve_increases_and_stored(conn):
 def test_predict_match_reads_calibrated_curve(conn):
     cc.calibrate(conn, store=True)
     from scm import predict_match as pm
-    f = pm._reliab_from_meta(conn)
+    f, model = pm._reliab_from_meta(conn)
     assert f is not None
     assert f(0.90) >= f(0.40)                               # curva monotônica é usada
+
+
+def test_curve_stored_with_model_version(conn):
+    import json
+    from scm.predictor import MODEL_VERSION
+    cc.calibrate(conn, store=True)
+    raw = conn.execute("SELECT value FROM meta WHERE key='confidence_reliab'").fetchone()[0]
+    data = json.loads(raw)
+    assert isinstance(data, dict) and data["model"] == MODEL_VERSION and data["curve"]

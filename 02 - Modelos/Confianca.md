@@ -23,7 +23,7 @@ Rótulos: ≥65 alta · 40–64 média · <40 baixa.
 A V1 operacional usa uma forma **enxuta e validável** do score, ancorada no backtest:
 ```
 confiança   = 100 · reliab(p_max) · maturidade(σ_R)
-maturidade  = 1 − min(0.5, σ_R_médio / σ_R_ref)        σ_R_ref = 200 [a calibrar]
+maturidade  = 1 − min(0.5, σ_R_médio / σ_R_ref)        σ_R_ref = 200 [a calibrar — audit nota escala 0.5–1.0]
 reliab(p_max) = taxa real de acerto do 'top pick' por faixa de p_max (curva isotônica do backtest)
 ```
 - `reliab` vem de **`scm/calibrate_confidence.py`** (grava `meta['confidence_reliab']`); sem rodar, usa `p_max` — honesto, pois o reliability diagram mostrou o modelo calibrado mesmo nos extremos.

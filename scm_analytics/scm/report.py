@@ -104,17 +104,64 @@ def save_reliability_png(conn, versao: str, path) -> str:
     return str(path)
 
 
+def btts_report(conn, versao: str, only_major: bool = False) -> dict:
+    """Mede se o 'ambos marcam' está enviesado: BTTS médio PREVISTO vs taxa REAL."""
+    from .backtest_harness import MAJOR
+    q = ("SELECT p.p_btts, m.home_score hs, m.away_score s FROM predictions p "
+         "JOIN matches m USING (match_id) "
+         "WHERE p.versao_modelo=? AND m.home_score IS NOT NULL AND m.away_score IS NOT NULL")
+    params = [versao]
+    if only_major:
+        q += " AND m.tournament IN (%s)" % ",".join("?" * len(MAJOR))
+        params += list(MAJOR)
+    rows = conn.execute(q, params).fetchall()
+    if not rows:
+        return {"n": 0}
+    preds = [r["p_btts"] for r in rows]
+    act = [1.0 if (r["hs"] > 0 and r["s"] > 0) else 0.0 for r in rows]
+    n = len(preds)
+    mean_pred = sum(preds) / n
+    rate = sum(act) / n
+    brier = sum((preds[i] - act[i]) ** 2 for i in range(n)) / n
+    bins = [[0, 0.0, 0.0] for _ in range(10)]
+    for pp, aa in zip(preds, act):
+        b = min(9, int(pp * 10))
+        bins[b][0] += 1
+        bins[b][1] += pp
+        bins[b][2] += aa
+    rel = [{"pred": c[1] / c[0], "obs": c[2] / c[0], "n": c[0]} for c in bins if c[0] > 0]
+    return {"n": n, "mean_pred": mean_pred, "actual_rate": rate,
+            "bias": mean_pred - rate, "brier": brier, "reliability": rel}
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description="Relatório de calibração + cobertura de banda.")
     p.add_argument("--db", default=str(DEFAULT_DB))
     p.add_argument("--versao", default=_MODEL)
     p.add_argument("--png", default=None, help="salva reliability diagram (requer matplotlib)")
     p.add_argument("--major", action="store_true", help="só torneios (WC/Euro/Copa América)")
+    p.add_argument("--btts", action="store_true", help="diagnóstico do 'ambos marcam' (viés)")
     args = p.parse_args(argv)
     if not Path(args.db).exists():
         print(f"[erro] SQLite não encontrado: {args.db}. Rode o pipeline antes.")
         return 1
     conn = db.connect(args.db)
+    if args.btts:
+        r = btts_report(conn, args.versao, only_major=args.major)
+        conn.close()
+        if not r.get("n"):
+            print(f"sem previsões p/ versão {args.versao}"); return 1
+        print(f"\n  AMBOS MARCAM (BTTS) — versão {args.versao} | n={r['n']}")
+        print(f"  previsto (média): {r['mean_pred']*100:.1f}%   |   real: {r['actual_rate']*100:.1f}%   "
+              f"|   viés: {r['bias']*100:+.1f} pp   |   Brier {r['brier']:.4f}")
+        verdict = ("ok — calibrado" if abs(r['bias']) < 0.02 else
+                   ("ALTO demais (corrigir)" if r['bias'] > 0 else "baixo demais"))
+        print(f"  veredito: {verdict}")
+        print("  reliability (prev -> obs, n):")
+        for b in r["reliability"]:
+            print(f"    {b['pred']*100:4.0f}% -> {b['obs']*100:4.0f}%  (n={b['n']})")
+        print()
+        return 0
     s = summary(conn, args.versao, only_major=args.major)
     if s["metrics"].get("n", 0) == 0:
         print(f"sem previsões p/ versão {args.versao}")

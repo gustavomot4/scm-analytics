@@ -12,6 +12,7 @@ import json
 
 from . import db
 from .ingest import DEFAULT_DB
+from .predictor import MODEL_VERSION
 
 LO = 1.0 / 3.0
 
@@ -72,7 +73,7 @@ def build_curve(conn, versao=None, n_bins=8, min_n=20):
 def calibrate(conn, versao=None, store=True):
     curve, raw, n = build_curve(conn, versao)
     if store and curve:
-        db.set_meta(conn, "confidence_reliab", json.dumps(curve))
+        db.set_meta(conn, "confidence_reliab", json.dumps({"model": MODEL_VERSION, "curve": curve}))
         conn.commit()
     return {"curve": curve, "raw": raw, "n": n}
 

@@ -8,7 +8,7 @@ aliases: ["Início", "Home", "Mapa do vault"]
 
 # 🏠 Índice — Sistema de previsão Copa 2026
 
-Vault de **planejamento e execução** de um sistema local e gratuito de previsão de partidas. **O sistema está construído e validado** (modelo `baseline-v0.2-altitude`). Para usar: [[Como rodar o sistema]]. Para o contexto: [[CLAUDE]].
+Vault de **planejamento e execução** de um sistema local e gratuito de previsão de partidas. **O sistema está construído e validado** (modelo `baseline-v0.2.1-altitude`). Para usar: [[Como rodar o sistema]]. Para o contexto: [[CLAUDE]].
 
 ## Portas de entrada
 - 🧭 [[CLAUDE]] — contexto completo (objetivo, estado, decisões, próxima tarefa)

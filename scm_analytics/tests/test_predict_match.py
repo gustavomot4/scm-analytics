@@ -68,3 +68,24 @@ def test_predict_match_exposes_markets(conn):
     r = pm.predict_match(conn, "Brazil", "Bolivia")
     assert "markets" in r and "over" in r["markets"] and "first_to_score" in r["markets"]
     assert 0.0 <= r["markets"]["over"]["2.5"] <= 1.0
+
+
+def test_difflib_suggests_brazil(conn):
+    r = pm.predict_match(conn, "Brasil", "Bolivia")       # 'Brasil' (pt)
+    assert r["erro"] == "time não encontrado"
+    assert "Brazil" in r["sugestoes"]                     # difflib aproxima
+
+
+def test_estilo_preview_in_range(conn):
+    from scm.estilo import CAP_LO, CAP_HI
+    r = pm.predict_match(conn, "Brazil", "Bolivia", usar_estilo=True)
+    assert CAP_LO <= r["estilo_a"] <= CAP_HI and CAP_LO <= r["estilo_b"] <= CAP_HI
+
+
+def test_reliab_stale_flag(conn):
+    import json
+    db.set_meta(conn, "confidence_reliab",
+                json.dumps({"model": "versao-antiga", "curve": [[0.4, 0.4], [0.9, 0.9]]}))
+    conn.commit()
+    r = pm.predict_match(conn, "Brazil", "Bolivia")
+    assert r["reliab_stale"] is True

@@ -32,6 +32,7 @@ data: 2026-06-15
 - [ ] **[P1]** Calibrar [[Mando de campo|mando (E2)]] separado de altitude — *dep:* baseline · *aceite:* ΔBrier com IC>0 **ou remover**; θ_alt e mando identificáveis (B2)
 - [x] **[[Ajustes ambientais|Altitude (E1)]] ADOTADA (v0.2)** — portão **+0,0491** IC[+0,028,+0,070] em 554 jogos → ativa no pipeline (D-18).
 - [x] **[[Ajustes ambientais|Calor (E3)]] NÃO adotada** — portão over/under +0,0007 IC[−0,0008,+0,0022] cruza zero (n=15.378); proxy de climatologia grosseiro (D-19).
+- [ ] **[P1]** Rodar o **portão do estilo** (`python -m scm.estilo`) e adotar se passar (D-23) — alavanca do BTTS
 - [ ] **[P2] (futuro opcional)** Piso de [[Ajustes ambientais|bola parada (E4)]] — *dep:* StatsBomb (download; só 2018/2022/Euro) · *aceite:* fecha o gap BTTS; IC>0
 - [ ] **[P2]** Fuso (E5) + descanso (E6) em `σ_ajuste` — *dep:* baseline · *aceite:* melhora **cobertura da banda**, não o ponto
 - [ ] **[P2]** [[xG preditivo|xG]] prior + Dixon-Coles + reconciliar as duas P(E) — *dep:* StatsBomb · *aceite:* recomputa V/E/D/over/BTTS coerentes
@@ -42,4 +43,5 @@ data: 2026-06-15
 - [ ] **[P2]** Detector de desfalques (JSON → σ) — Camada 3
 - [ ] **[P2]** Insights: Monte Carlo do torneio + cenários de classificação — Camada 5
 - [x] **Interface local (Camada 6) — ENTREGUE:** `scm/web.py` (Flask, UI de produto) + `predict_match`. Ver [[Como rodar o sistema]].
+- [x] **Resposta ao audit técnico — ENTREGUE:** P01 (piso conserva T_m, D-22), estilo implementado+gated (D-23), curva de confiança versionada + difflib (D-24), diagnóstico de BTTS (`report --btts`). Ver [[Resposta ao audit tecnico]]. **83 testes.**
 - [x] **Mercados (Poisson) + confiança evoluída — ENTREGUE:** `predictor.markets` (over/under 0.5–4.5, totais, clean sheet, dupla chance, handicap, **quem marca 1º**) + confiança `reliab(p_max)·maturidade` calibrável (`calibrate_confidence`); na CLI e na interface. **73 testes.** [[Decisoes tecnicas|D-20]]/[[Decisoes tecnicas|D-21]].

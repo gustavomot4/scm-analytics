@@ -117,3 +117,12 @@ def test_run_applies_altitude(conn):
                               WHERE p.versao_modelo=?""", (pred.MODEL_VERSION,)).fetchall())
     # em La Paz a Bolívia (mandante adaptada) deve ter P(V) MAIOR que no Rio
     assert pv["La Paz"] > pv["Rio"]
+
+
+def test_lambda_floor_conserves_total():
+    # P01: quando o piso eleva o azarão, o total T_m é conservado (λ_A reduz)
+    p = PredictParams()
+    la, lb = lambdas(2000, p)
+    tm = p.t_base + p.kappa_tm * 2000 / 100.0      # estilo=heat=1
+    assert lb == pytest.approx(p.lambda_min)
+    assert la + lb == pytest.approx(tm, abs=1e-9)
