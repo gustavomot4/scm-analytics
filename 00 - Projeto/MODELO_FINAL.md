@@ -39,7 +39,8 @@ T_m = g(dr)·estilo     g_linear = T_base+κ·|dr|/100   T_base=2.6, κ=0.10  [a
 | Bloco | Por que fica fora | Quando entra |
 |---|---|---|
 | [[Ajustes ambientais]] **altitude (E1) — ADOTADA (v0.2)** | passou o portão (+0,049, IC[+0,028,+0,070], 554 jogos) | **ativa**; gd_alt=0 fora de altitude |
-| [[Ajustes ambientais]] calor (E3) + piso bola parada (E4) | candidatos | C2.5, **um a um atrás do portão** |
+| [[Ajustes ambientais]] calor (E3) | **testado e REJEITADO** pelo portão (D-19) | fora |
+| [[Ajustes ambientais]] piso bola parada (E4) | candidato (StatsBomb) | C2.5, atrás do portão |
 | Fuso/descanso como σ | efeito pequeno, fácil overfit; evidência é de lesão, não placar | C2.5, em `σ_ajuste` |
 | Dixon-Coles + gerador [[Forca ofensiva-defensiva|ataque/defesa]] | precisa reconciliar as duas P(E); prior não-Elo p/ ser independente | C2.5 |
 | [[xG preditivo]] como prior | StatsBomb só cobre 2018/2022/Euro (não as 48, não ao vivo) | C2.5, subconjunto |

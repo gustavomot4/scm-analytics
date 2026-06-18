@@ -13,7 +13,8 @@ Sistema de previsão de partidas (Copa 2026) — **probabilidades, nunca certeza
 - **`00 - Projeto/Indice.md`** — mapa do vault (home) → [[Indice]]
 - **`00 - Projeto/CLAUDE.md`** — contexto completo para devs/agentes → [[CLAUDE]]
 - **`00 - Projeto/MODELO_FINAL.md`** — o que a V1 calcula → [[MODELO_FINAL]]
-- **`04 - Desenvolvimento/BACKLOG.md`** — próximo passo (Kanban) → [[BACKLOG]]
+- **`04 - Desenvolvimento/BACKLOG.md`** — quadro Kanban → [[BACKLOG]]
+- **`00 - Projeto/Como rodar o sistema.md`** — guia de uso completo → [[Como rodar o sistema]]
 
 ## Estrutura
 ```
@@ -26,4 +27,4 @@ Sistema de previsão de partidas (Copa 2026) — **probabilidades, nunca certeza
 06 - Analises/       execuções manuais de jogo
 ```
 
-> Estado: contrato matemático **v5.0** congelado e auditado; **sem código de implementação ainda**. O backtest histórico é o único critério de aceite real. Convenções e detalhes em [[CLAUDE]].
+> Estado: contrato matemático **v5.0** congelado e auditado; **sistema completo e validado** (ver [[Como rodar o sistema]]). O backtest histórico é o único critério de aceite real. Convenções e detalhes em [[CLAUDE]].

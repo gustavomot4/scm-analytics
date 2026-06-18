@@ -21,6 +21,7 @@ Tudo **gratuito, local, auditável**. Sem APIs pagas, sem hospedagem, sem servid
 | CLI | **`argparse` (stdlib)** | zero dependência extra, totalmente auditável; ergonomia suficiente |
 | Testes | **pytest** | padrão de fato; abriga o **teste anti look-ahead** (crítico, [[camada2-baseline-plano-v1]] M3) |
 | Visualização | **Matplotlib** | gera reliability diagrams e cobertura de banda, gratuito |
+| Interface web | **Flask** | app local mínimo p/ a interface gráfica (`scm.web`); sem servidor externo |
 | Ambiente | **venv + `requirements.txt` (versões pinadas)** | reprodutível sem o overhead de Docker |
 | Versionamento | **Git (local)** | histórico auditável; casa com o plugin [[Plugins recomendados|Obsidian Git]] |
 

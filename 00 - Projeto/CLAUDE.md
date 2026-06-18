@@ -15,7 +15,7 @@ Motor matemático auditável (Elo → Poisson → ensemble), validado por **back
 
 ## Estado atual
 **Planejamento (congelado):** contrato matemático **v5.0** ([[camada1-planejamento-v5]]), auditado ([[camada1-revisao-v5]]) e autocontido ([[camada1-apendice-formas-v5]]); design do backtest ([[camada2-planejamento-v1]]); plano de build ([[camada2-baseline-plano-v1]]); 9 execuções manuais ([[06 - Analises]]); registro imutável ([[Registro de previsoes]]).
-**Código (Camada 2):** **baseline COMPLETO — 6/6 módulos** (`ingest`, `elo_engine`, `features_pit`, `predictor`, `backtest_harness`, `report`), **42 testes**, pipeline E2E rodando — ver [[Codigo (estrutura)]].
+**Código:** baseline 6/6 + ferramentas C2.5 (`calibrate`/`altitude`/`heat`) + **`predict_match`** (prever um jogo) + **`web`** (interface gráfica). **62 testes**, pipeline E2E. Modelo `baseline-v0.2-altitude`. Ver [[Codigo (estrutura)]] e [[Como rodar o sistema]].
 **✅ Baseline VALIDADO** (torneios n=2241 Brier 0,562 bate uniforme com IC; ECE 0,023). Modelo atual: **`baseline-v0.2-altitude`**. **Portão C2.5 (decididos):** altitude (E1) **✅ adotada** (+0,049, D-18) · calor (E3) **✗** (D-19) · calibração de coeficientes **✗** (D-17). Candidatos restantes **opcionais**: bola parada (E4, StatsBomb) e descanso (E6, σ). Ver [[Backtest baseline (resultados)]].
 
 ## Decisões tomadas (resumo — detalhe em [[Decisoes tecnicas]])

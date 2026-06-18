@@ -8,13 +8,14 @@ aliases: ["Início", "Home", "Mapa do vault"]
 
 # 🏠 Índice — Sistema de previsão Copa 2026
 
-Vault de **planejamento e execução** de um sistema local e gratuito de previsão de partidas. Entrega **probabilidades, nunca certezas**. Comece por [[CLAUDE]].
+Vault de **planejamento e execução** de um sistema local e gratuito de previsão de partidas. **O sistema está construído e validado** (modelo `baseline-v0.2-altitude`). Para usar: [[Como rodar o sistema]]. Para o contexto: [[CLAUDE]].
 
 ## Portas de entrada
 - 🧭 [[CLAUDE]] — contexto completo (objetivo, estado, decisões, próxima tarefa)
 - 🎯 [[MODELO_FINAL]] — o que a V1 calcula
 - 🛠 [[TECH_STACK]] — stack escolhida
-- ✅ [[BACKLOG]] — quadro Kanban (próximo passo: Sprint 1)
+- [[Como rodar o sistema]] — guia de uso completo (instalar → prever → interface)
+- [[BACKLOG]] — quadro Kanban (estado consolidado)
 - 🔌 [[Plugins recomendados]] — plugins do Obsidian
 
 ## Estrutura do vault
@@ -26,6 +27,7 @@ Vault de **planejamento e execução** de um sistema local e gratuito de previs�
 04 - Desenvolvimento/ backlog, decisões, design do backtest, plano do baseline
 05 - Referencias/    papers e fontes externas
 06 - Analises/       execuções manuais de jogo (9)
+scm_analytics/       código do sistema (Python: motor + interface)
 ```
 
 ## Modelos ([[02 - Modelos]])

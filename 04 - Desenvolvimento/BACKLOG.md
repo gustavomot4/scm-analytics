@@ -41,4 +41,4 @@ data: 2026-06-15
 
 - [ ] **[P2]** Detector de desfalques (JSON → σ) — Camada 3
 - [ ] **[P2]** Insights: Monte Carlo do torneio + cenários de classificação — Camada 5
-- [ ] **[P2]** Interface local — Camada 6
+- [x] **Interface local (Camada 6) — ENTREGUE:** `scm/web.py` (Flask, UI de produto) + `predict_match`. Ver [[Como rodar o sistema]].

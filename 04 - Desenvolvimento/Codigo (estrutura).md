@@ -54,8 +54,13 @@ scm_analytics/
 | `predictor` | ✅ **pronto** (9 testes + E2E) | reproduz Poisson manual · P∈[0,1] · propagação determinística · piso de λ |
 | `backtest_harness` | ✅ **pronto** (7 testes) | Brier/RPS/LogLoss · IC bootstrap (seed) · portão aceita/rejeita |
 | `report` | ✅ **pronto** (6 testes) | reliability bins · ECE · cobertura de banda |
+| `calibrate` | C2.5 (3 testes) | grid treino/teste — não adotada (D-17) |
+| `altitude` | C2.5/E1 (3 testes) | termo GD_alt — **ADOTADO** (D-18) |
+| `heat` | C2.5/E3 (4 testes) | termo de calor — rejeitado (D-19) |
+| `predict_match` | porta da frente (4 testes) | prever um confronto (Elo atual) |
+| `web` | interface (4 testes) | app Flask local + UI de produto |
 
-> **🎉 Baseline 6/6 completo (42 testes, pipeline E2E).** Próximo marco: rodar o backtest com **dados reais** (martj42), o aceite de fato. Ver [[BACKLOG]].
+> **Sistema completo e validado — 62 testes.** Baseline + altitude (E1) adotada + `predict_match` + interface web. Backtest real: torneios Brier 0,562 batem o uniforme com IC. Guia: [[Como rodar o sistema]].
 
 ## Como rodar
 ```bash

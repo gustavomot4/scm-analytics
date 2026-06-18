@@ -29,7 +29,7 @@ Entram como **incerteza** ([[Incerteza e propagacao]]), **não** como placar.
 
 
 ## Atualização (2026-06-17)
-**Altitude (E1): ADOTADA** — passou o portão (+0,049 de Brier, IC [+0,028, +0,070] em 554 jogos de altitude; θ=0,5 McSharry). Ativa no `predictor` (modelo `baseline-v0.2-altitude`), via `scm/altitude.py`; `gd_alt=0` fora de sedes altas. **Calor (E3)** e **bola parada (E4)** seguem como candidatos atrás do portão. Ver [[Backtest baseline (resultados)]] e [[Decisoes tecnicas]] D-18.
+**Altitude (E1): ADOTADA** — passou o portão (+0,049 de Brier, IC [+0,028, +0,070] em 554 jogos de altitude; θ=0,5 McSharry). Ativa no `predictor` (modelo `baseline-v0.2-altitude`), via `scm/altitude.py`; `gd_alt=0` fora de sedes altas. **Bola parada (E4)** segue candidato; **calor (E3)** foi testado e **REJEITADO** pelo portão (ver seção abaixo, D-19). Ver [[Backtest baseline (resultados)]] e [[Decisoes tecnicas]] D-18.
 
 
 ## Calor (E3) — construído, aguardando portão (2026-06-17)

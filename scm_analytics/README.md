@@ -1,44 +1,38 @@
-# scm_analytics/ — sistema (Camada 2)
+# scm_analytics/ — sistema (motor + interface)
 
-Código Python do baseline. Documentação completa no vault Obsidian (raiz): ver
-`00 - Projeto/CLAUDE.md`, `00 - Projeto/MODELO_FINAL.md` e
-`04 - Desenvolvimento/camada2-baseline-plano-v1.md`.
+Código Python do sistema de previsão. Documentação completa no vault Obsidian (raiz):
+**`00 - Projeto/Como rodar o sistema.md`** (guia de uso), `CLAUDE.md`, `MODELO_FINAL.md`.
 
 ## Estrutura
 ```
 scm_analytics/
-├── scm/                # pacote
-│   ├── db.py           # schema SQLite + helpers
-│   ├── ingest.py       # martj42 -> SQLite (idempotente)            [M1]
-│   ├── elo_engine.py   # Elo histórico + σ_R + rating pré-jogo       [M2]
-│   ├── features_pit.py # features point-in-time (anti look-ahead)    [M3]
-│   └── predictor.py    # Poisson + Elo-direto -> P(V/E/D)+banda      [M4]
-├── tests/              # pytest (sem rede; fixtures) — 29 testes
-├── dados/              # snapshots + scm.sqlite  (gerados; .gitignore)
+├── scm/
+│   ├── db.py             # schema SQLite + helpers
+│   ├── ingest.py         # martj42 -> SQLite (idempotente)            [M1]
+│   ├── elo_engine.py     # Elo histórico + sigma_R + rating pré-jogo   [M2]
+│   ├── features_pit.py   # features point-in-time (anti look-ahead)    [M3]
+│   ├── predictor.py      # Poisson + Elo-direto -> P(V/E/D)+banda      [M4]  (v0.2: altitude)
+│   ├── backtest_harness.py  # Brier/RPS/LogLoss + IC + portão          [M5]
+│   ├── report.py         # calibração (reliability/ECE) + cobertura    [M6]
+│   ├── calibrate.py      # [C2.5] calibração treino/teste (não adotada)
+│   ├── altitude.py       # [C2.5/E1] termo GD_alt (ADOTADO)
+│   ├── heat.py           # [C2.5/E3] termo de calor (rejeitado)
+│   ├── predict_match.py  # prever um confronto (porta da frente)
+│   ├── web.py            # interface web local (Flask)
+│   └── templates/index.html   # UI (design de produto)
+├── tests/                # pytest (sem rede; fixtures) — 62 testes
+├── dados/                # snapshots + scm.sqlite (gerados; .gitignore)
 └── requirements.txt
 ```
 
-## Setup (R$ 0, local)
+## Uso rápido
 ```bash
 cd scm_analytics
-python -m venv .venv && source .venv/bin/activate    # Windows: .venv\Scripts\activate
+python -m venv .venv && source .venv/bin/activate    # Windows: .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
+python -m scm.ingest --download && python -m scm.ingest && python -m scm.elo_engine && python -m scm.features_pit && python -m scm.predictor
+python -m scm.predict_match "Brazil" "Argentina"     # prever no terminal
+python -m scm.web                                    # interface -> http://127.0.0.1:5000
+python -m pytest -q                                  # 62 testes
 ```
-
-## Pipeline
-```bash
-python -m scm.ingest --download    # baixa o snapshot do martj42 (1x, requer rede)
-python -m scm.ingest               # -> dados/scm.sqlite (offline)
-python -m scm.elo_engine --top 30  # Elo + top-30 (benchmark eloratings)
-python -m scm.features_pit         # features point-in-time
-python -m scm.predictor            # previsões -> tabela predictions
-```
-
-## Testes
-```bash
-python -m pytest -q
-```
-> Se uma edição em `.py` não refletir, limpe o bytecode: `rm -rf scm/__pycache__ tests/__pycache__`.
-
-## Próximo módulo
-`backtest_harness` — walk-forward, Brier/RPS/LogLoss, bootstrap pareado, portão por termo. Ver `../04 - Desenvolvimento/BACKLOG.md`.
+Guia completo e passo a passo: `../00 - Projeto/Como rodar o sistema.md`.
