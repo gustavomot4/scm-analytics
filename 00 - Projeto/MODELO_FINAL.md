@@ -20,7 +20,7 @@ Definição **decisiva** do que entra na primeira versão validável (a **V1 = b
 | [[Mando de campo]] | anfitrião / neutro | `H_host2026=+40` [a calibrar], 0 neutro, banda ±20 | passa pelo portão |
 | [[Forma recente]] | ajuste curto prazo ao Elo | `ΔE_forma=15·(PPJ_pond−PPJ_esp)`, cap ±30 | ajustada a adversário |
 | [[Desfalques direcionais]] | ausências por setor | tier −35/−15/−5; ataque corta λ_pró, defesa via dr | `setor` obrigatório |
-| Estilo (shrinkage) | tendência de gols → `T_m` | `estilo=shrink(gols/jogo ÷ média)` | **implementado** (`estilo.py`), candidato ao portão BTTS — D-23 |
+| Estilo (shrinkage) | tendência de gols → `T_m` | `estilo=shrink(gols/jogo ÷ média)` | implementado, **rejeitado** pelo portão (D-23) |
 | [[Incerteza e propagacao]] | `σ_dr` + Monte Carlo | `σ_dr=√(σ_R²+σ_R²+σ_aj²+σ_aj²+banda²)` | propaga V/E/D inteiro + banda |
 | [[Poisson]] | matriz de placares | `M[i][j]=Pois(i;λ_A)·Pois(j;λ_B)`, 0..10 | over/BTTS/placares Poisson-condicionais |
 | [[Ensemble]] | combina leituras | `0.45·Poisson+0.35·Elo+0.20·mercado` | clamp por leitura |
@@ -40,7 +40,8 @@ T_m = g(dr)·estilo     g_linear = T_base+κ·|dr|/100   T_base=2.6, κ=0.10  [a
 |---|---|---|
 | [[Ajustes ambientais]] **altitude (E1) — ADOTADA (v0.2)** | passou o portão (+0,049, IC[+0,028,+0,070], 554 jogos) | **ativa**; gd_alt=0 fora de altitude |
 | [[Ajustes ambientais]] calor (E3) | **testado e REJEITADO** pelo portão (D-19) | fora |
-| **Estilo (tendência de gols)** | **implementado e DORMENTE** — alavanca do BTTS | `estilo.py`, atrás do portão BTTS (D-23) |
+| **Estilo (tendência de gols)** | implementado, **REJEITADO pelo portão** (corrige média do BTTS, sem skill/jogo) | `estilo.py` — D-23 |
+| **Nível de gols (T_base)** | calibra o BTTS/over global (viés ~4pp medido) | `calibrate_total.py`, candidato — D-25 |
 | [[Ajustes ambientais]] piso bola parada (E4) | candidato (StatsBomb) | C2.5, atrás do portão |
 | Fuso/descanso como σ | efeito pequeno, fácil overfit; evidência é de lesão, não placar | C2.5, em `σ_ajuste` |
 | Dixon-Coles + gerador [[Forca ofensiva-defensiva|ataque/defesa]] | precisa reconciliar as duas P(E); prior não-Elo p/ ser independente | C2.5 |

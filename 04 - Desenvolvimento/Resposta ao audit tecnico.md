@@ -22,7 +22,7 @@ Resposta ponto a ponto ao `SCM_Analytics_Analise_Tecnica.docx` (auditoria do rep
 
 ## Candidato ao portão (a decidir com dado)
 
-**Estilo (D-23).** É a alavanca natural do BTTS. Sem ele, todo jogo equilibrado dá BTTS ~53%; com ele, dupla defensiva cai p/ ~37% e ofensiva sobe p/ ~72%. Como o estilo move o **total** (não o 1X2), o portão mede a **Brier de BTTS** — mesma lição do calor ([[Decisoes tecnicas\|D-19]]). Rodar `python -m scm.estilo`; se o IC95 de ΔBrier-BTTS não cruzar zero, adoto no pipeline e bumpo a versão.
+**Estilo (D-23) — RODADO e REJEITADO.** n=445 jogos: corrige o viés médio do BTTS (50,5%→47,0% vs real 46,7%), mas ΔBrier-BTTS −0,0008 IC[−0,0083,+0,0069] **cruza zero** — ~200 parâmetros por time sem skill por jogo. O portão funcionou. **O achado real:** o viés é **global** (~4pp), então o ajuste certo é 1 parâmetro: o nível de gols **T_base**, calibrado na Brier de BTTS/over (`calibrate_total.py`, D-25), não 200 estilos. Rodar `python -m scm.calibrate_total`.
 
 ## Backlog (audit correto, fica para depois — com prioridade)
 

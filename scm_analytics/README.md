@@ -21,7 +21,7 @@ scm_analytics/
 │   ├── predict_match.py  # prever um confronto (porta da frente)
 │   ├── web.py            # interface web local (Flask)
 │   └── templates/index.html   # UI (design de produto)
-├── tests/                # pytest (sem rede; fixtures) — 83 testes
+├── tests/                # pytest (sem rede; fixtures) — 86 testes
 ├── dados/                # snapshots + scm.sqlite (gerados; .gitignore)
 └── requirements.txt
 ```

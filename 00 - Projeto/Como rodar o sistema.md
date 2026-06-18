@@ -70,7 +70,7 @@ Depois, `predict_match`/`web` já usam o Elo atualizado. (Para automatizar, agen
 
 ## 6. Testes
 ```
-python -m pytest -q                 # 83 testes
+python -m pytest -q                 # 86 testes
 ```
 > Quirk de sandbox: se uma edição `.py` não refletir, `rm -rf scm/__pycache__ tests/__pycache__`.
 
@@ -89,7 +89,8 @@ python -m pytest -q                 # 83 testes
 - Coeficientes: `python -m scm.calibrate --cutoff 2018-01-01` (mantido v0.1 — D-17).
 - Altitude: `python -m scm.altitude` (**adotada** — D-18).
 - Calor: `python -m scm.heat --build-climatology` (lento) → `python -m scm.heat` (**rejeitado** — D-19).
-- **Estilo (tendência de gols):** `python -m scm.estilo` roda o portão (Brier de BTTS); `python -m scm.estilo --list` lista as seleções mais ofensivas/defensivas. Preview num jogo: `predict_match "A" "B" --estilo`. Candidato — D-23.
+- **Estilo (tendência de gols):** `python -m scm.estilo` — **rejeitado** pelo portão (D-23: corrige a média do BTTS mas não a previsão por jogo). Preview: `python -m scm.predict_match "A" "B" --estilo`.
+- **Nível de gols (T_base):** `python -m scm.calibrate_total` calibra o T_base na Brier de BTTS/over (o lugar certo) com guarda de 1X2 — o jeito principiado de corrigir o BTTS ~4pp alto (D-25).
 - **BTTS enviesado?** `python -m scm.report --btts --major` compara o 'ambos marcam' previsto com o real.
 - Confiança: `python -m scm.calibrate_confidence` ancora a confiança no backtest (**adotado** — D-20).
 

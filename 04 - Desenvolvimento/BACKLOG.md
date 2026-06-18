@@ -32,7 +32,8 @@ data: 2026-06-15
 - [ ] **[P1]** Calibrar [[Mando de campo|mando (E2)]] separado de altitude — *dep:* baseline · *aceite:* ΔBrier com IC>0 **ou remover**; θ_alt e mando identificáveis (B2)
 - [x] **[[Ajustes ambientais|Altitude (E1)]] ADOTADA (v0.2)** — portão **+0,0491** IC[+0,028,+0,070] em 554 jogos → ativa no pipeline (D-18).
 - [x] **[[Ajustes ambientais|Calor (E3)]] NÃO adotada** — portão over/under +0,0007 IC[−0,0008,+0,0022] cruza zero (n=15.378); proxy de climatologia grosseiro (D-19).
-- [ ] **[P1]** Rodar o **portão do estilo** (`python -m scm.estilo`) e adotar se passar (D-23) — alavanca do BTTS
+- [x] **Portão do estilo RODADO → rejeitado** (D-23): corrige a média do BTTS (50,5→47 vs real 46,7) mas sem skill por jogo (IC cruza 0). Viés é global.
+- [ ] **[P1]** Rodar **`calibrate_total`** (T_base na Brier de BTTS/over) e adotar se passar (D-25) — corrige o BTTS ~4pp alto com 1 parâmetro
 - [ ] **[P2] (futuro opcional)** Piso de [[Ajustes ambientais|bola parada (E4)]] — *dep:* StatsBomb (download; só 2018/2022/Euro) · *aceite:* fecha o gap BTTS; IC>0
 - [ ] **[P2]** Fuso (E5) + descanso (E6) em `σ_ajuste` — *dep:* baseline · *aceite:* melhora **cobertura da banda**, não o ponto
 - [ ] **[P2]** [[xG preditivo|xG]] prior + Dixon-Coles + reconciliar as duas P(E) — *dep:* StatsBomb · *aceite:* recomputa V/E/D/over/BTTS coerentes

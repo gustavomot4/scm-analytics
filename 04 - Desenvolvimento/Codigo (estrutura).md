@@ -26,7 +26,8 @@ scm_analytics/
 │   ├── altitude.py     # [C2.5/E1] termo GD_alt (McSharry) + portão por subconjunto
 │   ├── heat.py         # [C2.5/E3] WBGT (Open-Meteo) + termo de calor + portão over/under
 │   ├── calibrate_confidence.py # confiança ancorada na confiabilidade do backtest
-│   ├── estilo.py        # tendência de gols (alavanca do BTTS) + portão na Brier de BTTS
+│   ├── estilo.py        # tendência de gols (rejeitado pelo portão, D-23)
+│   ├── calibrate_total.py # calibra T_base na Brier de BTTS/over (D-25)
 │   ├── predict_match.py # prevê um confronto (Elo atual + mando/altitude)
 │   ├── web.py          # INTERFACE WEB local (Flask: página + API /api/predict)
 │   └── templates/index.html  # UI (design de produto; sem cara de IA)
@@ -45,6 +46,7 @@ scm_analytics/
 │   ├── test_calibrate_confidence.py # 4 testes (curva isotônica + versão)
 │   ├── test_estilo.py         # 5 testes (estilo + shrinkage + PIT)
 │   ├── test_btts_report.py    # 1 teste (viés do BTTS)
+│   ├── test_calibrate_total.py # 3 testes (T_base na Brier de BTTS)
 │   └── test_web.py           # 4 testes (interface)
 ├── dados/              # snapshots + scm.sqlite (gerados; .gitignore)
 ├── requirements.txt
@@ -66,9 +68,10 @@ scm_analytics/
 | `predict_match` | porta da frente (4 testes) | prever um confronto (Elo atual) |
 | `web` | interface (4 testes) | app Flask local + UI de produto + mercados |
 | `calibrate_confidence` | confiança (4 testes) | curva isotônica do backtest → `meta` versionada (D-20/D-24) |
-| `estilo` | candidato (5 testes) | tendência de gols → portão na Brier de BTTS (D-23) |
+| `estilo` | rejeitado (5 testes) | tendência de gols → portão BTTS cruza zero (D-23) |
+| `calibrate_total` | candidato (3 testes) | T_base na Brier de BTTS/over + guarda 1X2 (D-25) |
 
-> **Sistema completo e validado — 83 testes (modelo `baseline-v0.2.1-altitude`).** Baseline + altitude (E1) + `predict_match` + interface web + **mercados** (over/under 0.5–4.5, quem marca 1º, etc.) + **confiança calibrável**. Backtest real: torneios Brier 0,562 batem o uniforme com IC. Guia: [[Como rodar o sistema]].
+> **Sistema completo e validado — 86 testes (modelo `baseline-v0.2.1-altitude`).** Baseline + altitude (E1) + `predict_match` + interface web + **mercados** (over/under 0.5–4.5, quem marca 1º, etc.) + **confiança calibrável**. Backtest real: torneios Brier 0,562 batem o uniforme com IC. Guia: [[Como rodar o sistema]].
 
 ## Como rodar
 ```bash
