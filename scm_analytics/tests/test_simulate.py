@@ -62,3 +62,14 @@ def test_host_bonus_helps():
     ph = {r["team"]: r["p_champion"] for r in boosted["table"]}
     c.close()
     assert ph["T30"] > pb["T30"]                            # mando aumenta a chance
+
+
+def test_assign_thirds_valid_for_all_combos():
+    from itertools import combinations
+    from scm.simulate import _assign_thirds, THIRD_SLOTS
+    bad = 0
+    for combo in combinations("ABCDEFGHIJKL", 8):       # todas as 495 combinações
+        a = _assign_thirds(set(combo))
+        if len(a) != 8 or set(a.values()) != set(combo) or any(g not in THIRD_SLOTS[s] for s, g in a.items()):
+            bad += 1
+    assert bad == 0                                       # Anexo C garante alocação p/ toda combinação

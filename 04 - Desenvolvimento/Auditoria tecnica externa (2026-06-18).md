@@ -341,3 +341,8 @@ Problema **#13 (sem lógica de mata-mata)** ✅ **corrigido**: `predictor.knocko
 
 ### Atualização 2026-06-18 (c) — Simulação do torneio (Camada 5)
 Entregue a **Funcionalidade Futura #1** da §9 (Monte Carlo do torneio → chance de título): `scm/simulate.py` + `dados/copa2026.json` (sorteio a preencher) + página `/simulacao`. Reusa o `knockout_advance` (#13). Σ P(campeão)=1 e Σ P(passar)=32 nos testes. **100 testes** verdes. Ver [[Decisoes tecnicas]] D-32.
+
+**Sorteio preenchido (2026-06-18).** `copa2026.json` recebeu o **sorteio oficial dos 12 grupos** (busca web + cruzamento 100% com os 20 jogos já disputados no martj42). Simulação real (20k torneios, `baseline-v0.3-altitude`): **Argentina 18,6% · Espanha 15,0% · França 10,9% · Inglaterra 6,8% · Colômbia 5,3% · Brasil 4,9%** de título; México 3,6% (com mando de anfitrião). Insight, não previsão validada.
+
+### Atualização 2026-06-18 (d) — chaveamento oficial + ε do mata-mata
+Simulação refinada com o **chaveamento oficial da FIFA 2026** (R32 73–88 → final 104; 3os por elegibilidade do Anexo C, validado nas 495 combinações) no lugar do sorteio aleatório — caminhos reais (ex.: França semi ~34%). E `calibrate_ko.py` mede o **ε empírico** dos pênaltis (`shootouts.csv` + dr pré-jogo) — rodar na máquina do usuário. **102 testes**. D-33.

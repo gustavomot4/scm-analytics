@@ -110,3 +110,7 @@ python -m scm.simulate --sims 20000          # tabela de P(campeão/final/semi/p
 python -m scm.web   ->  http://127.0.0.1:5000/simulacao   # versão visual
 ```
 Os jogos já disputados são **travados** automaticamente da base. É **insight**, não previsão validada — probabilidade, não certeza.
+
+> **Atualização 2026-06-18:** o `copa2026.json` já vem com o **sorteio oficial completo** da Copa 2026 (obtido por busca web e **cruzado 100%** com os jogos já disputados no martj42). Não precisa preencher — só rode `python -m scm.simulate`. Edite apenas se a FIFA alterar algo. Snapshot atual do favoritismo: Argentina ~18,6%, Espanha ~15%, França ~11%.
+
+> **Chaveamento oficial + ε (2026-06-18):** a simulação já usa o **chaveamento real da FIFA** (não mais sorteio aleatório). Para calibrar o ε do mata-mata com dados de pênaltis (opcional, melhora a fidelidade): `python -m scm.calibrate_ko --download` (baixa o `shootouts.csv` 1x) — ele mede quanto o time mais forte de fato vence na disputa e sugere o ε. Até lá, ε=0,03 (pênalti ~moeda, como a literatura indica).

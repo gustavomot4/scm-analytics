@@ -106,3 +106,6 @@ Modelo **`baseline-v0.3-altitude`** · **92 testes** (era 86; +6 dos novos recur
 
 ### 2026-06-18 (c) — Camada 5: simulação do torneio
 `scm/simulate.py` (Monte Carlo: P de título por seleção) + `dados/copa2026.json` (sorteio, preencher) + página web `/simulacao` (`templates/simulacao.html`, rota em `web.py`). **100 testes** (era 96; +4). Ver [[Decisoes tecnicas]] D-32.
+
+### 2026-06-18 (d) — chaveamento oficial + ε do mata-mata
+`simulate.py` agora usa o **chaveamento oficial da FIFA** (R32→final; 3os por elegibilidade do Anexo C). Novo `scm/calibrate_ko.py` calibra o **ε** dos pênaltis com `shootouts.csv` (rodar `--download` na sua máquina). **102 testes** (era 100; +2, incl. as 495 combinações de 3º). D-33.
