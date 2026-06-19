@@ -89,3 +89,38 @@ def test_reliab_stale_flag(conn):
     conn.commit()
     r = pm.predict_match(conn, "Brazil", "Bolivia")
     assert r["reliab_stale"] is True
+
+
+def test_dr_includes_recent_form():
+    """D-34: a porta da frente aplica a forma recente ao dr (igual ao backtest dr_adj).
+
+    Cenário com upset recente (Davi bate Golias 2x) → forma != 0; o dr retornado deve ser
+    Elo + (forma_A − forma_B), não o Elo puro (antes o ponto de forma era descartado).
+    """
+    from datetime import date as D, timedelta as TD
+    from scm.features_pit import team_form, FeatureParams
+    c = db.connect(":memory:"); db.init_schema(c)
+
+    def M(date, h, a, hs, as_):
+        hi = db.get_or_create_team(c, h); ai = db.get_or_create_team(c, a)
+        c.execute("""INSERT INTO matches(date,home_team_id,away_team_id,home_score,away_score,
+                     tournament,neutral,natural_key) VALUES(?,?,?,?,?,?,1,?)""",
+                  (date, hi, ai, hs, as_, "FIFA World Cup", f"{date}|{h}|{a}|{hs}{as_}"))
+    for k in range(20):
+        M(f"2016-{(k % 12) + 1:02d}-10", "Golias", f"Fraco{k % 5}", 4, 0)
+        M(f"2017-{(k % 12) + 1:02d}-10", "Davi", f"Fraco{k % 5}", 1, 1)
+    M("2018-10-01", "Davi", "Golias", 2, 0)
+    M("2018-11-01", "Davi", "Golias", 1, 0)
+    c.commit(); elo.run(c)
+
+    ref = (D.fromisoformat(c.execute("SELECT MAX(date) FROM matches").fetchone()[0])
+           + TD(days=1)).isoformat()
+    da = db.get_or_create_team(c, "Davi"); go = db.get_or_create_team(c, "Golias")
+    fa = team_form(c, da, ref, FeatureParams())[0]
+    fb = team_form(c, go, ref, FeatureParams())[0]
+    eloA = c.execute("SELECT elo FROM ratings_current WHERE team_id=?", (da,)).fetchone()[0]
+    eloB = c.execute("SELECT elo FROM ratings_current WHERE team_id=?", (go,)).fetchone()[0]
+    r = pm.predict_match(c, "Davi", "Golias")
+    c.close()
+    assert r["dr"] == pytest.approx((eloA - eloB) + (fa - fb), abs=1e-9)
+    assert abs(fa - fb) > 1.0          # a forma de fato move o dr neste cenário

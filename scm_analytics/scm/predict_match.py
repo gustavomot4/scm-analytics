@@ -5,6 +5,9 @@ predictor v0.2 (com altitude). Saída: P(V/E/D)+banda, λ, um leque de mercados 
 totais por time, não-sofrer-gol, dupla chance, handicap, quem marca 1º), placares
 prováveis e CONFIANÇA ancorada na confiabilidade medida no backtest.
 
+dr ALINHADO AO BACKTEST (D-34): aplica a forma recente (forma_home − forma_away) ao dr,
+igual ao `features_pit.dr_adj`. Confiança usa σ_R ESCALADO por consistência (D-35).
+
 Probabilidade, não certeza — não é recomendação de aposta.
 """
 from __future__ import annotations
@@ -102,10 +105,9 @@ def predict_match(conn, home, away, mando=0.0, city=None, sigma_ajuste=None, usa
     if not a or not b:
         miss = home if not a else away
         return {"erro": "time não encontrado", "faltando": miss, "sugestoes": _suggest(conn, miss)}
-    dr = a["elo"] - b["elo"] + mando
-    # σ informativo (#2): σ_ajuste vem da DISPERSÃO DE FORMA real de cada seleção (não mais
-    # um valor fixo); σ_R é escalado pela (in)consistência recente (vol_mult). Assim a banda
-    # e a confiança variam por confronto. banda_mando entra quando há mando (anfitrião).
+    # σ informativo: σ_ajuste vem da DISPERSÃO DE FORMA real de cada seleção (não um valor
+    # fixo); σ_R é escalado pela (in)consistência recente (vol_mult). Assim a banda e a
+    # confiança variam por confronto. banda_mando entra quando há mando (anfitrião).
     from .features_pit import team_form, vol_mult, FeatureParams
     from datetime import date as _date, timedelta as _td
     fp = FeatureParams()
@@ -116,8 +118,13 @@ def predict_match(conn, home, away, mando=0.0, city=None, sigma_ajuste=None, usa
         ref_date = (_date.fromisoformat(_ref) + _td(days=1)).isoformat()
     except (TypeError, ValueError):
         ref_date = "2027-01-01"
-    _, dev_a, n_fa = team_form(conn, a["team_id"], ref_date, fp)
-    _, dev_b, n_fb = team_form(conn, b["team_id"], ref_date, fp)
+    form_a, dev_a, n_fa = team_form(conn, a["team_id"], ref_date, fp)
+    form_b, dev_b, n_fb = team_form(conn, b["team_id"], ref_date, fp)
+    # dr ALINHADO AO BACKTEST (D-34): features_pit grava dr_adj = dr_elo + (forma_home −
+    # forma_away). A porta da frente agora aplica a MESMA forma recente ao dr — antes o ponto
+    # de forma era DESCARTADO (só a dispersão entrava em σ), então a previsão entregue diferia
+    # do modelo validado no backtest. forma já vem capada em ±form_cap (contrato).
+    dr = a["elo"] - b["elo"] + (form_a - form_b) + mando
     if sigma_ajuste is None:
         sa_a = fp.sigma_ajuste_c * dev_a
         sa_b = fp.sigma_ajuste_c * dev_b
@@ -138,7 +145,10 @@ def predict_match(conn, home, away, mando=0.0, city=None, sigma_ajuste=None, usa
     hw = (pr["band_pv_hi"] - pr["band_pv_lo"]) / 2.0
     pr["band_pv_lo"] = max(0.01, pr["p_v"] - hw)
     pr["band_pv_hi"] = min(0.99, pr["p_v"] + hw)
-    sigma_r_avg = (a["sigma_r"] + b["sigma_r"]) / 2.0
+    # confiança usa o σ_R ESCALADO pela consistência recente (sr_a/sr_b já têm vol_mult),
+    # não o σ_R bruto (D-35): antes a "maturidade" era ~0,8 fixa p/ toda seleção madura
+    # (σ_R satura ~40), tornando a confiança função quase pura de p_max.
+    sigma_r_avg = (sr_a + sr_b) / 2.0
     reliab, reliab_model = _reliab_from_meta(conn)
     conf = confidence(pr["p_v"], pr["p_e"], pr["p_d"], sigma_r_avg, reliab)
     mk = markets(pr["lambda_a"], pr["lambda_b"], PredictParams().max_goals)
@@ -158,7 +168,9 @@ def main(argv=None) -> int:
     p.add_argument("--mando", type=float, default=0.0,
                    help="mando em Elo p/ o 1º time (0=neutro/Copa; ~40 anfitrião 2026; ~60-100 casa)")
     p.add_argument("--city", default=None, help="cidade-sede (p/ altitude; ex.: 'Mexico City', 'La Paz')")
-    p.add_argument("--estilo", action="store_true", help="aplica estilo (tendência de gols) — candidato ao portão")
+    p.add_argument("--estilo", action="store_true",
+                   help="[EXPERIMENTAL] aplica estilo (tendência de gols) — REJEITADO pelo portão (D-23); "
+                        "fora do modelo padrão, só para inspeção")
     p.add_argument("--mata-mata", dest="mata_mata", action="store_true",
                    help="jogo eliminatório: mostra a probabilidade de AVANÇAR (empate→prorrog./pênaltis)")
     args = p.parse_args(argv)

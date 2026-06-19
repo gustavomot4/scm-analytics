@@ -100,3 +100,11 @@ O agente mantém o projeto **commit-ready** e fornece a **mensagem de commit** a
 
 ## ▶ Atualização 2026-06-18 — v0.3 (correções do audit externo)
 Modelo recomendado agora: **`baseline-v0.3-altitude`** (92 testes). Aplicadas as correções de alto impacto de [[Auditoria tecnica externa (2026-06-18)]] (Fase 0–1): curva de empate **empírica C1** (substitui o proxy proibido), **baseline Elo público** no portão (o modelo **bate o Elo** com IC>0: major +0,0037 [+0,0009,+0,0066]), **σ informativo** (σ_dr varia por confronto), cobertura de **altitude p/ Guadalajara**, **cobertura de banda por faixa** e índices. Detalhe em [[Decisoes tecnicas]] D-26..D-30 e [[Backtest baseline (resultados)]]. **Rebuild:** rode `features_pit` + `predictor` (a base muda).
+
+## ▶ Atualização 2026-06-19 — consistência produção↔backtest (audit completo)
+Aplicadas as correções de **consistência** de [[Auditoria tecnica completa (2026-06-19)]] (Fase 0), que **não** adicionam termos novos a λ/dr (logo não passam pelo portão) — apenas fazem a "porta da frente" entregar o **mesmo modelo já validado**:
+- **D-34:** `predict_match` agora aplica a **forma recente** ao `dr` (`elo_A − elo_B + (forma_A − forma_B) + mando`), igual ao `features_pit.dr_adj` do backtest. Antes a forma era descartada na produção.
+- **D-35:** a **confiança** usa o `σ_R` **escalado** por consistência (`vol_mult`), não o bruto.
+- **D-36:** `--estilo` rotulado `[EXPERIMENTAL]` (rejeitado pelo portão, D-23).
+
+**Estado canônico (reconciliação P-K):** modelo **`baseline-v0.3-altitude`** (`predictor.MODEL_VERSION`); **18 arquivos de teste** em `tests/` (+1 caso novo `test_dr_includes_recent_form`). As menções antigas a `v0.2`/`v0.2.1` e a contagens "73/86/92" nesta nota e no `README` são **históricas** — vale o que está em `predictor.MODEL_VERSION`. **Aberto** (Fase 1+ do audit): Dixon-Coles/diversidade real do ensemble, σ estrutural (Glicko/TrueSkill), altitude no Monte Carlo (`simulate`, N2), mando do anfitrião no portão, Camada 3 (desfalques), validação prospectiva fechada. **Não rodei `pytest`** nesta sessão (sandbox sem pytest/rede) — validei a lógica com um harness numpy+sqlite; **rode `python -m pytest -q` na sua máquina** após o pull.

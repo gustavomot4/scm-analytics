@@ -49,3 +49,22 @@ data: 2026-06-15
 
 ## ✅ Camada 5 (insights) — Monte Carlo do torneio ENTREGUE (2026-06-18)
 - [x] **Simulação da Copa (`scm/simulate.py`)** — P(campeão/final/semi/passar) por seleção; reusa o mata-mata (D-31); CLI + página `/simulacao`. Preencher o sorteio em `dados/copa2026.json`. Ver [[Decisoes tecnicas]] D-32. *(Cenários de classificação determinísticos seguem como futuro.)*
+
+## ✅ Consistência produção↔backtest — ENTREGUE (2026-06-19, audit completo)
+> Correções da Fase 0 de [[Auditoria tecnica completa (2026-06-19)]] — **sem termos novos** (não passam pelo portão), só alinham a porta da frente ao modelo validado. Verificado por harness numpy+sqlite (26/26); **rodar `pytest` na máquina do usuário**.
+- [x] **N1 — forma no `predict_match`** (D-34): `dr = elo_A − elo_B + (forma_A − forma_B) + mando`; teste novo `test_dr_includes_recent_form`.
+- [x] **N3 — confiança usa σ_R escalado** (D-35): `(sr_a + sr_b)/2` em vez do σ bruto.
+- [x] **N4 — `--estilo` rotulado EXPERIMENTAL** (D-36).
+
+## 📋 Backlog — achados abertos do audit (2026-06-19), por prioridade
+- [ ] **[P0] N2** — aplicar **altitude no Monte Carlo** (`simulate`): exige o mapa **jogo→sede 2026** (não inventar). Hoje a chance de título ignora CDMX/Guadalajara.
+- [ ] **[P1] P-A** — **Dixon-Coles** + membro de **prior não-Elo** no ensemble (diversidade real; corrige BTTS/under).
+- [ ] **[P1] P-B** — **σ estrutural** (Glicko/TrueSkill ou erro do ajuste de Elo) — σ_R hoje satura ~40.
+- [ ] **[P1] P-C** — **recalibração isotônica do 1X2** (superconfiança medida em [0,8–0,9]).
+- [ ] **[P1] P-D** — **forma saturante** de GD (`tanh`) — evita λ_B<0 no tail.
+- [ ] **[P1] P-E** — **mando do anfitrião** (+40) pelo portão (P04).
+- [ ] **[P2] P-F** — **Camada 3** (desfalques/escalações) — maior fator jogo-a-jogo.
+- [ ] **[P2] P-G** — **registro prospectivo gerado por código** + resultados → primeiro Brier real.
+- [ ] **[P2] P-H** — evoluir **schema-alvo** (venues/context/odds/statsbomb).
+- [ ] **[P2] N5** — versionar `copa2026.json` (config do torneio) p/ reprodutibilidade do `simulate`.
+- [ ] **[P3]** Faxina (P-I): centralizar a leitura Elo-direto (3 cópias), `conftest.py`, context managers, `logging`; pinar deps (P-J); `natural_key` com cidade (P-L); benchmark de Elo automatizado (P-M).

@@ -11,7 +11,7 @@ scm_analytics/
 │   ├── ingest.py         # martj42 -> SQLite (idempotente)            [M1]
 │   ├── elo_engine.py     # Elo histórico + sigma_R + rating pré-jogo   [M2]
 │   ├── features_pit.py   # features point-in-time (anti look-ahead)    [M3]
-│   ├── predictor.py      # Poisson + Elo-direto -> P(V/E/D)+banda+markets [M4] (v0.2: altitude)
+│   ├── predictor.py      # Poisson + Elo-direto -> P(V/E/D)+banda+markets [M4] (v0.3: altitude)
 │   ├── backtest_harness.py  # Brier/RPS/LogLoss + IC + portão          [M5]
 │   ├── report.py         # calibração (reliability/ECE) + cobertura    [M6]
 │   ├── calibrate.py      # [C2.5] calibração treino/teste (não adotada)
@@ -21,7 +21,7 @@ scm_analytics/
 │   ├── predict_match.py  # prever um confronto (porta da frente)
 │   ├── web.py            # interface web local (Flask)
 │   └── templates/index.html   # UI (design de produto)
-├── tests/                # pytest (sem rede; fixtures) — 86 testes
+├── tests/                # pytest (sem rede; fixtures) — 18 arquivos de teste
 ├── dados/                # snapshots + scm.sqlite (gerados; .gitignore)
 └── requirements.txt
 ```
@@ -34,6 +34,6 @@ pip install -r requirements.txt
 python -m scm.ingest --download && python -m scm.ingest && python -m scm.elo_engine && python -m scm.features_pit && python -m scm.predictor
 python -m scm.predict_match "Brazil" "Argentina"     # prever no terminal
 python -m scm.web                                    # interface -> http://127.0.0.1:5000
-python -m pytest -q                                  # 73 testes
+python -m pytest -q                                  # roda a suíte de testes
 ```
 Guia completo e passo a passo: `../00 - Projeto/Como rodar o sistema.md`.
