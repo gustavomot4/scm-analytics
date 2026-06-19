@@ -55,3 +55,17 @@ def test_summary_integration():
     assert s["metrics"]["n"] == 3
     assert "coverage" in s and "reliability" in s
     c.close()
+
+
+def test_band_coverage_binned():
+    # faixa 0.5 com banda larga contendo a freq observada -> coberta;
+    # faixa 0.9 superconfiante com banda estreita e obs 0 -> fora.
+    items = [{"p_v": 0.5, "lo": 0.3, "hi": 0.7, "home_won": 1 if i < 50 else 0} for i in range(100)]
+    items += [{"p_v": 0.9, "lo": 0.88, "hi": 0.92, "home_won": 0} for _ in range(40)]
+    cb = report.band_coverage_binned(items)
+    assert cb["n_bins"] >= 2
+    b5 = [r for r in cb["bins"] if r["bin"] == 5][0]
+    b9 = [r for r in cb["bins"] if r["bin"] == 9][0]
+    assert b5["in_band"] is True
+    assert b9["in_band"] is False
+    assert 0.0 <= cb["coverage_weighted"] <= 1.0

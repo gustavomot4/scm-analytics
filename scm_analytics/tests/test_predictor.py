@@ -126,3 +126,49 @@ def test_lambda_floor_conserves_total():
     tm = p.t_base + p.kappa_tm * 2000 / 100.0      # estilo=heat=1
     assert lb == pytest.approx(p.lambda_min)
     assert la + lb == pytest.approx(tm, abs=1e-9)
+
+
+def test_draw_curve_empirical_monotonic():
+    """C1 empírica: P(empate) decai com |dr| e bate os extremos da DRAW_CURVE."""
+    from scm.predictor import draw_prob, PredictParams, DRAW_CURVE
+    p = PredictParams()
+    vals = [draw_prob(dr, p) for dr in (0, 100, 200, 300, 500)]
+    assert all(vals[i] >= vals[i + 1] - 1e-9 for i in range(len(vals) - 1))  # não-crescente
+    assert draw_prob(0, p) == pytest.approx(DRAW_CURVE[0][1], abs=1e-6)
+    assert draw_prob(9999, p) == pytest.approx(DRAW_CURVE[-1][1], abs=1e-6)
+
+
+def test_draw_curve_fallback_proxy():
+    """use_empirical_draw=False reativa o proxy fechado (compat)."""
+    from scm.predictor import draw_prob, PredictParams
+    import math
+    p = PredictParams(use_empirical_draw=False)
+    assert draw_prob(300, p) == pytest.approx(p.draw_base * math.exp(-300 / p.draw_scale), rel=1e-9)
+
+
+def test_knockout_advance_sums_to_one_and_symmetry():
+    from scm.predictor import knockout_advance, PredictParams
+    p = PredictParams()
+    r0 = knockout_advance(0.40, 0.30, 0.30, 0, p)        # dr=0: empate dividido meio a meio
+    assert r0["draw_share_a"] == pytest.approx(0.5)
+    assert r0["adv_a"] == pytest.approx(0.40 + 0.15)
+    assert r0["adv_a"] + r0["adv_b"] == pytest.approx(1.0)
+    rp = knockout_advance(0.40, 0.30, 0.30, 200, p)      # dr>0: mais forte leva vantagem
+    rm = knockout_advance(0.40, 0.30, 0.30, -200, p)
+    assert rp["adv_a"] > r0["adv_a"] > rm["adv_a"]
+    assert rp["adv_a"] + rp["adv_b"] == pytest.approx(1.0)
+
+
+def test_knockout_eps_zero_is_coin_flip():
+    from scm.predictor import knockout_advance, PredictParams
+    r = knockout_advance(0.5, 0.2, 0.3, 300, PredictParams(), eps=0.0)
+    assert r["draw_share_a"] == pytest.approx(0.5)
+    assert r["adv_a"] == pytest.approx(0.5 + 0.1)
+
+
+def test_predict_includes_knockout():
+    from scm.predictor import predict, PredictParams
+    pr = predict(150.0, 124.0, PredictParams())
+    assert "knockout" in pr
+    assert pr["knockout"]["adv_a"] + pr["knockout"]["adv_b"] == pytest.approx(1.0)
+    assert pr["knockout"]["adv_a"] > pr["p_v"]            # favorito avança mais do que vence

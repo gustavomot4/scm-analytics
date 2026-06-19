@@ -42,6 +42,20 @@ def _is_friendly(t: Optional[str]) -> bool:
     return "friendly" in (t or "").lower()
 
 
+def vol_mult(desvio: float, n_form: int = 99, ref: float = 0.35, min_n: int = 5) -> float:
+    """Multiplicador de σ_R pela (in)consistência recente da seleção.
+
+    Resolve a degenerescência do σ_R antigo (função só de nº de jogos → ~40 fixo p/
+    toda seleção estabelecida). Time errático (desvio de forma alto) → σ_R maior;
+    consistente → menor. ~1.0 quando desvio≈ref; clampado em [0.6, 1.6].
+    Com POUCA forma (n_form < min_n) retorna 1.0 (neutro): desvio≈0 ali significa
+    'sem informação', não 'consistente' — um estreante deve manter σ_R alto.
+    """
+    if n_form < min_n:
+        return 1.0
+    return max(0.6, min(1.6, 0.4 + 0.6 * desvio / ref))
+
+
 def team_form(conn, team_id: int, before_date: str, p: FeatureParams):
     """(form_ΔE, desvio_forma, n) usando SÓ jogos com date < before_date.
 
@@ -96,10 +110,10 @@ def run(conn, params: FeatureParams = FeatureParams(),
     ).fetchall()
     n = 0
     for r in rows:
-        fh, dh, _ = team_form(conn, r["home_team_id"], r["date"], params)
-        fa, da, _ = team_form(conn, r["away_team_id"], r["date"], params)
-        sr_h = sigma_r(r["home_n_pre"], elo_params)
-        sr_a = sigma_r(r["away_n_pre"], elo_params)
+        fh, dh, nh_f = team_form(conn, r["home_team_id"], r["date"], params)
+        fa, da, na_f = team_form(conn, r["away_team_id"], r["date"], params)
+        sr_h = sigma_r(r["home_n_pre"], elo_params) * vol_mult(dh, nh_f)
+        sr_a = sigma_r(r["away_n_pre"], elo_params) * vol_mult(da, na_f)
         sa_h = params.sigma_ajuste_c * dh
         sa_a = params.sigma_ajuste_c * da
         dr_adj = r["dr_elo"] + fh - fa

@@ -90,3 +90,19 @@ python -m pytest -q                # testes
 
 ## Relacionado
 [[CLAUDE]] · [[BACKLOG]] · [[MODELO_FINAL]] · [[Esquema SQLite]] · [[camada2-baseline-plano-v1]]
+
+## Atualização 2026-06-18 — correções do audit externo (v0.3)
+Modelo **`baseline-v0.3-altitude`** · **92 testes** (era 86; +6 dos novos recursos). Mudanças (ver [[Decisoes tecnicas]] D-26..D-30, [[Auditoria tecnica externa (2026-06-18)]]):
+- `predictor.py` — **curva de empate empírica C1** (`DRAW_CURVE`, `build_draw_curve`; proxy vira fallback); propagação **vetorizada** (quantis da Normal cacheados).
+- `backtest_harness.py` — **baseline Elo público** (`elo_baseline_read`, `evaluate_vs_elo`): modelo bate o Elo com IC>0.
+- `features_pit.py` / `predict_match.py` — **σ informativo** (`vol_mult`; σ_ajuste da forma real; banda_mando).
+- `altitude.py` — **Guadalajara/Zapopan** + normalização de acentos.
+- `report.py` — **cobertura de banda por faixa** (`band_coverage_binned`).
+- `db.py` — **índices compostos** (home/away, date).
+> **Rebuild necessário:** como σ_R e a curva mudaram, rode `features_pit` + `predictor` de novo (a base é gerada; o `scm.sqlite` antigo é v0.2.1).
+
+### 2026-06-18 (b) — mata-mata
+`predictor.knockout_advance` (avanço eliminatório) + CLI `predict_match --mata-mata` + toggle na web (`web.py`/`index.html`). **96 testes** (era 92; +4). Releitura do 1X2 (D-31), sem rebuild.
+
+### 2026-06-18 (c) — Camada 5: simulação do torneio
+`scm/simulate.py` (Monte Carlo: P de título por seleção) + `dados/copa2026.json` (sorteio, preencher) + página web `/simulacao` (`templates/simulacao.html`, rota em `web.py`). **100 testes** (era 96; +4). Ver [[Decisoes tecnicas]] D-32.

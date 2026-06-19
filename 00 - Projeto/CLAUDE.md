@@ -97,3 +97,6 @@ Sem `gh`: crie um repo **vazio** em github.com/new e rode `git remote add origin
 git add -A && git commit -m "<mensagem>" && git push
 ```
 O agente mantém o projeto **commit-ready** e fornece a **mensagem de commit** ao fim de cada etapa; o `push` é executado pelo usuário (auth própria, persistente).
+
+## ▶ Atualização 2026-06-18 — v0.3 (correções do audit externo)
+Modelo recomendado agora: **`baseline-v0.3-altitude`** (92 testes). Aplicadas as correções de alto impacto de [[Auditoria tecnica externa (2026-06-18)]] (Fase 0–1): curva de empate **empírica C1** (substitui o proxy proibido), **baseline Elo público** no portão (o modelo **bate o Elo** com IC>0: major +0,0037 [+0,0009,+0,0066]), **σ informativo** (σ_dr varia por confronto), cobertura de **altitude p/ Guadalajara**, **cobertura de banda por faixa** e índices. Detalhe em [[Decisoes tecnicas]] D-26..D-30 e [[Backtest baseline (resultados)]]. **Rebuild:** rode `features_pit` + `predictor` (a base muda).

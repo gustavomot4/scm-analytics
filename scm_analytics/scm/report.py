@@ -77,6 +77,40 @@ def band_coverage(items: list) -> dict:
     }
 
 
+def band_coverage_binned(items: list, n_bins: int = 10) -> dict:
+    """Cobertura de banda POR FAIXA de P(V) (substitui o agregado trivial).
+
+    Em cada faixa de p_v: a frequência observada de vitória cai dentro da banda média
+    da faixa? É o teste de cobertura nominal / calibração de σ_dr por estrato que o
+    aceite pede (camada2-planejamento-v1 §5.4–5.5) — o agregado anterior quase sempre
+    dava 'dentro' por construção. Reporta cobertura por faixa e ponderada por n.
+    """
+    buckets = [[] for _ in range(n_bins)]
+    for it in items:
+        idx = min(n_bins - 1, max(0, int(it["p_v"] * n_bins)))
+        buckets[idx].append(it)
+    rows, cov_n, tot_n = [], 0, 0
+    for b, grp in enumerate(buckets):
+        if not grp:
+            continue
+        n = len(grp)
+        pred = sum(x["p_v"] for x in grp) / n
+        obs = sum(x["home_won"] for x in grp) / n
+        lo = sum(x["lo"] for x in grp) / n
+        hi = sum(x["hi"] for x in grp) / n
+        inb = lo <= obs <= hi
+        rows.append({"bin": b, "n": n, "pred_mean": pred, "obs_freq": obs,
+                     "lo": lo, "hi": hi, "in_band": inb})
+        tot_n += n
+        cov_n += n if inb else 0
+    nb = len(rows)
+    covered = sum(1 for r in rows if r["in_band"])
+    return {"bins": rows, "n_bins": nb, "n_bins_covered": covered,
+            "coverage_bins": covered / nb if nb else None,
+            "coverage_weighted": cov_n / tot_n if tot_n else None,
+            "mean_width": sum(r["hi"] - r["lo"] for r in rows) / nb if nb else None}
+
+
 def summary(conn, versao: str, only_major: bool = False) -> dict:
     items = _scored(conn, versao, only_major=only_major)
     return {
@@ -84,6 +118,7 @@ def summary(conn, versao: str, only_major: bool = False) -> dict:
         "reliability": reliability_bins(items),
         "calibration_error": calibration_error(items),
         "coverage": band_coverage(items),
+        "coverage_binned": band_coverage_binned(items),
     }
 
 
@@ -174,6 +209,14 @@ def main(argv=None) -> int:
     c = s["coverage"]
     print(f"banda: obs mandante {c['obs_home_win']:.3f} em [{c['mean_band_lo']:.3f}, {c['mean_band_hi']:.3f}] "
           f"-> {'DENTRO' if c['obs_in_mean_band'] else 'FORA'} (largura média {c['mean_band_width']:.3f})")
+    cb = s["coverage_binned"]
+    if cb["n_bins"]:
+        print(f"cobertura por faixa de p_v: {cb['n_bins_covered']}/{cb['n_bins']} faixas dentro da banda "
+              f"({cb['coverage_weighted']*100:.0f}% dos jogos) | largura média {cb['mean_width']:.3f}")
+        for r in cb["bins"]:
+            mark = "ok" if r["in_band"] else "FORA"
+            print(f"  p_v[{r['bin']/10:.1f}-{(r['bin']+1)/10:.1f}] obs {r['obs_freq']:.2f} "
+                  f"banda [{r['lo']:.2f},{r['hi']:.2f}] {mark} (n={r['n']})")
     if args.png:
         print("png:", save_reliability_png(conn, args.versao, args.png))
     conn.close()

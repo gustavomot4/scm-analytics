@@ -13,6 +13,7 @@ mantém o termo SSE o IC do ΔBrier não cruza zero. Ver vault `02 - Modelos/Aju
 from __future__ import annotations
 
 import argparse
+import unicodedata
 
 from . import db
 from .predictor import PredictParams, predict
@@ -21,19 +22,30 @@ from .ingest import DEFAULT_DB
 
 THETA_ALT = 0.5  # gol/1000 m (McSharry, CONMEBOL) — [a calibrar fora da CONMEBOL]
 
+def _norm(s) -> str:
+    """minúsculas + sem acentos (casa 'Bogotá'/'bogota'/'Ciudad de México' etc.)."""
+    s = unicodedata.normalize("NFKD", (s or "").strip().lower())
+    return "".join(ch for ch in s if not unicodedata.combining(ch))
+
+
 # Elevação (m) de cidades-sede de altitude. Fatos públicos aproximados — [verificar via Open-Meteo].
+# Chaves SEM acento (a busca normaliza). Limiar prático ~1500 m: cidades abaixo disso
+# (ex.: Monterrey 540 m) são tratadas como nível do mar — não são "altitude".
+# Inclui as sedes ALTAS da Copa 2026: Cidade do México (2240) e Guadalajara (1566).
 CITY_ALT = {
     "la paz": 3637, "el alto": 4150, "oruro": 3706, "potosi": 4070, "cochabamba": 2558,
-    "sucre": 2810, "quito": 2850, "bogota": 2640, "bogotá": 2640, "cusco": 3399,
-    "cuzco": 3399, "arequipa": 2335, "pasto": 2527, "mexico city": 2240,
-    "ciudad de méxico": 2240, "ciudad de mexico": 2240, "toluca": 2660, "puebla": 2135,
+    "sucre": 2810, "quito": 2850, "bogota": 2640, "cusco": 3399, "cuzco": 3399,
+    "arequipa": 2335, "pasto": 2527,
+    "mexico city": 2240, "ciudad de mexico": 2240, "toluca": 2660, "puebla": 2135,
+    "guadalajara": 1566, "zapopan": 1566,   # Guadalajara/Estadio Akron (sede 2026)
 }
 # Altitude "de casa" das seleções adaptadas (m). Default 0 (litoral) p/ as demais. [verificar]
+# As 4 seleções genuinamente adaptadas à altitude (jogam mando em cidade alta).
 TEAM_HOME_ALT = {"Bolivia": 3637, "Ecuador": 2850, "Colombia": 2640, "Mexico": 2240}
 
 
 def venue_alt(city) -> float:
-    return float(CITY_ALT.get((city or "").strip().lower(), 0.0))
+    return float(CITY_ALT.get(_norm(city), 0.0))
 
 
 def team_alt(name) -> float:

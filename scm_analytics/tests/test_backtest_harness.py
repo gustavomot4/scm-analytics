@@ -88,3 +88,29 @@ def test_major_filter(conn):
     elo.run(conn); fp.run(conn); pred.run(conn)
     assert bh.evaluate(conn, pred.MODEL_VERSION, B=500)["n"] == 2
     assert bh.evaluate(conn, pred.MODEL_VERSION, B=500, only_major=True)["n"] == 1
+
+
+def test_elo_baseline_read_valid_distribution():
+    from scm.backtest_harness import elo_baseline_read
+    r = elo_baseline_read(150.0)
+    assert abs(r["p_v"] + r["p_e"] + r["p_d"] - 1.0) < 1e-9
+    assert r["p_v"] > r["p_d"]                      # favorito (dr>0) ganha mais
+    assert all(0.0 <= r[k] <= 1.0 for k in ("p_v", "p_e", "p_d"))
+
+
+def test_evaluate_vs_elo_runs():
+    from scm import db, elo_engine as elo, features_pit as fp, predictor as pred
+    from scm import backtest_harness as bh
+    c = db.connect(":memory:"); db.init_schema(c)
+    def M(date, h, a, hs, as_, t="FIFA World Cup", neutral=1):
+        hi = db.get_or_create_team(c, h); ai = db.get_or_create_team(c, a)
+        c.execute("INSERT INTO matches (date,home_team_id,away_team_id,home_score,away_score,"
+                  "tournament,neutral,natural_key) VALUES (?,?,?,?,?,?,?,?)",
+                  (date, hi, ai, hs, as_, t, neutral, f"{date}|{h}|{a}|{t}")); c.commit()
+    for i in range(6):
+        M(f"201{i}-06-20", "Spain", "Iran", 1, 0)
+        M(f"201{i}-07-10", "Brazil", "Chile", 2, 1)
+    elo.run(c); fp.run(c); pred.run(c)
+    e = bh.evaluate_vs_elo(c, pred.MODEL_VERSION)
+    assert e["n"] > 0 and "ganho_vs_elo" in e and "veredito" in e
+    c.close()

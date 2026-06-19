@@ -101,3 +101,11 @@ def test_no_lookahead(conn):
     # features dos jogos passados NÃO podem mudar por causa de um jogo futuro
     assert before_m1 == after_m1
     assert before_m2 == after_m2
+
+
+def test_vol_mult_behavior():
+    from scm.features_pit import vol_mult
+    assert vol_mult(0.0, n_form=1) == 1.0          # poucos jogos -> neutro
+    assert vol_mult(0.0, n_form=10) == 0.6         # consistente -> reduz (clamp)
+    assert vol_mult(0.35, n_form=10) == pytest.approx(1.0, abs=1e-9)  # ~médio -> ~1
+    assert vol_mult(2.0, n_form=10) == 1.6         # errático -> aumenta (clamp)

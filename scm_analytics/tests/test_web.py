@@ -39,3 +39,27 @@ def test_predict_unknown_team(app):
 def test_index_page(app):
     html = app.test_client().get("/").get_data(as_text=True)
     assert "Prever um confronto" in html and "SCM Analytics" in html
+
+
+def test_api_predict_includes_knockout():
+    import json
+    from scm import db, elo_engine as elo, features_pit as fp, predictor as pred
+    from scm.web import create_app
+    c = db.connect(":memory:"); db.init_schema(c)
+    def M(date, h, a, hs, as_):
+        hi = db.get_or_create_team(c, h); ai = db.get_or_create_team(c, a)
+        c.execute("INSERT INTO matches (date,home_team_id,away_team_id,home_score,away_score,"
+                  "tournament,neutral,natural_key) VALUES (?,?,?,?,?,?,?,?)",
+                  (date, hi, ai, hs, as_, "Friendly", 0, f"{date}|{h}|{a}")); c.commit()
+    for i in range(8):
+        M(f"201{i}-03-01", "Spain", "Malta", 3, 0)
+        M(f"201{i}-06-01", "Malta", "Spain", 0, 2)
+    elo.run(c); fp.run(c); pred.run(c)
+    # grava num arquivo temporário p/ o app abrir
+    import tempfile, os
+    fd, path = tempfile.mkstemp(suffix=".sqlite"); os.close(fd)
+    disk = db.connect(path); c.backup(disk); disk.close(); c.close()
+    app = create_app(path); cli = app.test_client()
+    d = json.loads(cli.get("/api/predict?home=Spain&away=Malta").data)
+    os.remove(path)
+    assert "knockout" in d and abs(d["knockout"]["adv_a"] + d["knockout"]["adv_b"] - 1.0) < 1e-9

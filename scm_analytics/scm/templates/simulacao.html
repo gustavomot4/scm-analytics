@@ -1,0 +1,60 @@
+<!doctype html><html lang="pt-br"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SCM Analytics — Simulação da Copa 2026</title>
+<style>
+ :root{--bg:#fff;--panel:#f7f8fa;--text:#1c1f23;--muted:#6b7280;--border:#e5e7eb;--accent:#2563eb;--accent-weak:#eef3ff;--radius:8px}
+ *{box-sizing:border-box} html,body{margin:0}
+ body{background:var(--bg);color:var(--text);font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif;font-size:14px;line-height:1.5}
+ .tnum{font-variant-numeric:tabular-nums}
+ header{height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;border-bottom:1px solid var(--border)}
+ .brand{font-weight:600;font-size:15px} .brand span{color:var(--muted);font-weight:400;margin-left:8px}
+ a{color:var(--accent);text-decoration:none} main{max-width:860px;margin:0 auto;padding:28px 24px 48px}
+ h1{font-size:18px;margin:0 0 4px} .sub{color:var(--muted);margin:0 0 18px;font-size:13px}
+ .ctl{display:flex;gap:12px;align-items:end;padding:14px;border:1px solid var(--border);border-radius:var(--radius);background:var(--panel)}
+ label{font-size:12px;color:var(--muted);display:block;margin-bottom:6px}
+ input{height:36px;padding:0 10px;border:1px solid #d2d6db;border-radius:6px;font:inherit;width:120px}
+ button{height:36px;padding:0 18px;border:1px solid var(--accent);border-radius:6px;background:var(--accent);color:#fff;font:inherit;font-weight:500;cursor:pointer}
+ button:disabled{opacity:.55} .warn{display:none;margin-top:14px;padding:11px 14px;border:1px solid #eecaca;background:#fcf4f4;color:#9b2c2c;border-radius:6px;font-size:13px}
+ .warn.show{display:block} table{width:100%;border-collapse:collapse;margin-top:18px;font-size:13px}
+ th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--border)} td.r,th.r{text-align:right}
+ th{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+ .barcell{position:relative} .barcell i{position:absolute;left:0;top:0;bottom:0;background:var(--accent-weak);z-index:0}
+ .barcell span{position:relative;z-index:1} .foot{color:var(--muted);font-size:12px;margin-top:16px}
+ .meta{color:var(--muted);font-size:12px;margin-top:8px}
+</style></head><body>
+<header><div class="brand">SCM Analytics<span>Simulação — Copa 2026</span></div><div><a href="/">← Prever um jogo</a></div></header>
+<main>
+ <h1>Quem tem mais chance de ser campeão?</h1>
+ <p class="sub">Monte Carlo do torneio a partir do Elo e do modelo. Insight, não previsão validada — probabilidade, não certeza.</p>
+ <div class="ctl">
+   <div><label for="sims">Simulações</label><input type="text" id="sims" value="5000" class="tnum"></div>
+   <button id="go">Simular torneio</button>
+ </div>
+ <div class="warn" id="warn"></div>
+ <div class="meta" id="meta"></div>
+ <table id="tbl" style="display:none"><thead><tr>
+   <th>#</th><th>Seleção</th><th class="r">Elo</th><th class="r">Campeão</th><th class="r">Final</th><th class="r">Semi</th><th class="r">Passa 1ª fase</th>
+ </tr></thead><tbody id="rows"></tbody></table>
+ <div class="foot">Empates do mata-mata resolvidos pelo termo do contrato (§3.2, ε=0,03). Chaveamento por sorteio aleatório (não modela a tabela posicional exata dos terceiros). Jogos já disputados são travados.</div>
+</main>
+<script>
+ const $=id=>document.getElementById(id);
+ async function sim(){
+   $('go').disabled=true; $('go').textContent='Simulando…'; $('warn').classList.remove('show');
+   try{
+     const d=await (await fetch('/api/simulate?sims='+encodeURIComponent($('sims').value||5000))).json();
+     if(d.erro){ $('warn').textContent=d.erro; $('warn').classList.add('show'); return; }
+     if(d.warnings && d.warnings.length){ $('warn').innerHTML='Sorteio incompleto — resultado ilustrativo:<br>• '+d.warnings.join('<br>• '); $('warn').classList.add('show'); }
+     $('meta').textContent=d.n_sims.toLocaleString()+' torneios · modelo '+d.model+' · '+d.n_played_locked+' jogos travados';
+     const max=Math.max(...d.table.map(r=>r.p_champion))||1;
+     $('rows').innerHTML=d.table.slice(0,32).map((r,i)=>
+       `<tr><td>${i+1}</td><td>${r.team}</td><td class="r tnum">${r.elo}</td>`+
+       `<td class="r tnum barcell"><i style="width:${(r.p_champion/max*100).toFixed(0)}%"></i><span>${(r.p_champion*100).toFixed(1)}%</span></td>`+
+       `<td class="r tnum">${(r.p_final*100).toFixed(1)}%</td><td class="r tnum">${(r.p_semi*100).toFixed(1)}%</td>`+
+       `<td class="r tnum">${(r.p_advance*100).toFixed(1)}%</td></tr>`).join('');
+     $('tbl').style.display='';
+   }catch(e){ $('warn').textContent='Falha ao simular.'; $('warn').classList.add('show'); }
+   finally{ $('go').disabled=false; $('go').textContent='Simular torneio'; }
+ }
+ $('go').addEventListener('click',sim);
+</script></body></html>

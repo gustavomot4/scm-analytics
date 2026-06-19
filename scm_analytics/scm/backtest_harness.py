@@ -121,6 +121,63 @@ def evaluate(conn, versao: str, B: int = 10000, seed: int = 12345, only_major: b
     return m
 
 
+def elo_baseline_read(dr, p=None):
+    """Baseline 'Elo publico' independente: P(V/E/D) so do Elo pre-jogo.
+
+    we(dr) (expectativa de pontuacao) + curva de empate empirica C1, SEM forma,
+    SEM altitude, SEM Poisson, SEM propagacao, SEM ensemble. E o comparador minimo
+    exigido pelo aceite (camada2-planejamento-v1 §5.1) — bem mais forte que o uniforme.
+    """
+    from .predictor import PredictParams, draw_prob, _clamp_norm
+    from .elo_engine import we
+    p = p or PredictParams()
+    w = we(dr)
+    m = min(w, 1.0 - w)
+    pe = max(0.0, min(draw_prob(dr, p), 2.0 * m - p.draw_eps))
+    pv = w - pe / 2.0
+    pd = 1.0 - pv - pe
+    v = _clamp_norm((pv, pe, pd), p.clamp_lo, p.clamp_hi)
+    return {"p_v": v[0], "p_e": v[1], "p_d": v[2]}
+
+
+def evaluate_vs_elo(conn, versao, B=10000, seed=12345, only_major=False):
+    """MODELO vs baseline Elo publico (delta-Brier pareado por jogo, IC bootstrap).
+
+    delta = brier_elo - brier_modelo (>0 = modelo melhor). Veredito: 'melhor' se IC95>0,
+    'empata' se IC contem 0, 'pior' se IC<0. Contrato pede ~Elo publico (nao pior).
+    """
+    q = ("SELECT p.p_v, p.p_e, p.p_d, mr.dr, m.home_score, m.away_score "
+         "FROM predictions p JOIN matches m USING (match_id) "
+         "JOIN match_ratings mr USING (match_id) WHERE p.versao_modelo = ?")
+    params = [versao]
+    if only_major:
+        q += " AND m.tournament IN (%s)" % ",".join("?" * len(MAJOR))
+        params += list(MAJOR)
+    rows = conn.execute(q, params).fetchall()
+    if not rows:
+        return {"n": 0}
+    deltas, sb_model, sb_elo = [], 0.0, 0.0
+    for r in rows:
+        o = outcome_of(r["home_score"], r["away_score"])
+        pm = {"p_v": r["p_v"], "p_e": r["p_e"], "p_d": r["p_d"]}
+        pe = elo_baseline_read(r["dr"])
+        bm, be = brier(pm, o), brier(pe, o)
+        sb_model += bm
+        sb_elo += be
+        deltas.append(be - bm)
+    g = gate(deltas, B, seed)
+    n = len(deltas)
+    if g["ic_lo"] > 0:
+        verdict = "melhor que o Elo (IC>0)"
+    elif g["ic_hi"] < 0:
+        verdict = "PIOR que o Elo (IC<0)"
+    else:
+        verdict = "empata com o Elo (IC contem 0)"
+    return {"n": n, "brier_modelo": sb_model / n, "brier_elo": sb_elo / n,
+            "ganho_vs_elo": g["mean"], "ic_lo": g["ic_lo"], "ic_hi": g["ic_hi"],
+            "bate_elo": g["keep"], "veredito": verdict}
+
+
 def compare(conn, versao_a: str, versao_b: str, B: int = 10000, seed: int = 12345) -> dict:
     """ΔBrier pareado por match entre A e B (delta = brier_B − brier_A; >0 = A melhor)."""
     a = {r["match_id"]: r for r in conn.execute(
@@ -149,8 +206,8 @@ def main(argv=None) -> int:
         return 1
     conn = db.connect(args.db)
     m = evaluate(conn, args.versao, only_major=args.major)
-    conn.close()
     if m.get("n", 0) == 0:
+        conn.close()
         print(f"sem previsões p/ versão {args.versao}")
         return 1
     print(f"versão {m['versao']}  |  n={m['n']}")
@@ -159,6 +216,12 @@ def main(argv=None) -> int:
     print(f"  RPS     = {m['rps']:.4f}")
     print(f"  ganho vs uniforme = {m['ganho_vs_uniforme']:+.4f}  IC95 [{m['ic_lo']:+.4f}, {m['ic_hi']:+.4f}]")
     print(f"  bate uniforme (IC não cruza 0)? {'SIM' if m['bate_uniforme_com_ic'] else 'NÃO'}")
+    e = evaluate_vs_elo(conn, args.versao, only_major=args.major)
+    if e.get("n"):
+        print("  --- vs baseline ELO PUBLICO (we + curva empirica C1) ---")
+        print(f"  Brier modelo {e['brier_modelo']:.4f}  vs  Elo {e['brier_elo']:.4f}")
+        print(f"  ganho vs Elo = {e['ganho_vs_elo']:+.4f}  IC95 [{e['ic_lo']:+.4f}, {e['ic_hi']:+.4f}]  -> {e['veredito']}")
+    conn.close()
     return 0
 
 

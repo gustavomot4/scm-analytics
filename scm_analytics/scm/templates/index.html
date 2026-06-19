@@ -81,13 +81,19 @@
   .mkt{margin-top:16px}
   .mkt-grid{display:grid; grid-template-columns:240px 1fr; gap:18px; margin-top:8px}
   .hint{color:var(--muted); font-weight:400; text-transform:none; letter-spacing:0; font-size:12px}
+  .ko-toggle{display:inline-flex; align-items:center; gap:7px; margin-top:10px; font-size:13px; cursor:pointer}
+  .ko-toggle input{width:14px; height:14px}
+  .koline{display:none; margin-top:14px; padding:11px 14px; border:1px solid var(--accent);
+    background:var(--accent-weak); border-radius:var(--radius-sm); font-size:13px}
+  .koline.show{display:block}
+  .koline b{font-weight:600}
   @media(max-width:560px){ .mkt-grid{grid-template-columns:1fr} }
 </style>
 </head>
 <body>
   <header>
     <div class="brand">SCM Analytics<span>Previsão de partidas — Copa 2026</span></div>
-    <div class="model" id="model"></div>
+    <div style="display:flex;gap:16px;align-items:center"><a href="/simulacao" style="font-size:13px;color:var(--accent);text-decoration:none">Simular Copa →</a><div class="model" id="model"></div></div>
   </header>
   <main>
     <h1>Prever um confronto</h1>
@@ -119,6 +125,7 @@
       </div>
       <datalist id="teams"></datalist>
     </form>
+    <label class="ko-toggle"><input type="checkbox" id="ko"> Jogo eliminatório — mostrar probabilidade de <b>avançar</b> (empate → prorrogação/pênaltis)</label>
     <div class="count" id="count"></div>
 
     <div class="error" id="error" role="alert"></div>
@@ -132,6 +139,7 @@
         <div class="bar" id="bar"></div>
         <div class="legend" id="legend"></div>
         <div class="band" id="band"></div>
+        <div class="koline" id="koline"></div>
         <div class="stats" id="stats"></div>
         <div class="cols">
           <div>
@@ -166,6 +174,7 @@
 
 <script>
   const $ = id => document.getElementById(id);
+  let lastData = null;
   const pct = x => (x*100).toFixed(1) + '%';
   const venueMap = {neutral:{}, host:{mando:40}, MexicoCity:{city:'Mexico City'},
     LaPaz:{city:'La Paz'}, Quito:{city:'Quito'}, Bogota:{city:'Bogota'}};
@@ -230,10 +239,21 @@
     ].map(([k,v]) => `<div class="stat"><div class="k">${k}</div><div class="v tnum">${v}</div></div>`).join('');
     $('confbar').style.width = Math.round(d.conf) + '%';
     $('conflbl').innerHTML = '<b>' + Math.round(d.conf) + ' / 100</b> — ' + d.conf_label;
+    lastData = d; renderKo();
     $('result').classList.add('show');
   }
 
+  function renderKo(){
+    const d = lastData, el = $('koline');
+    if(!d || !d.knockout || !$('ko').checked){ el.classList.remove('show'); return; }
+    const k = d.knockout;
+    el.innerHTML = 'Mata-mata — avanço: <b>' + d.home + ' ' + (k.adv_a*100).toFixed(0) + '%</b> &middot; <b>'
+      + d.away + ' ' + (k.adv_b*100).toFixed(0) + '%</b> <span class="hint">(empate &rarr; prorrogação/pênaltis; &epsilon;=' + k.eps + ')</span>';
+    el.classList.add('show');
+  }
+
   $('form').addEventListener('submit', predict);
+  $('ko').addEventListener('change', renderKo);
   loadTeams();
 </script>
 </body>

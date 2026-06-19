@@ -32,6 +32,10 @@ CREATE TABLE IF NOT EXISTS matches (
 CREATE INDEX IF NOT EXISTS idx_matches_date ON matches(date);
 CREATE INDEX IF NOT EXISTS idx_matches_home ON matches(home_team_id);
 CREATE INDEX IF NOT EXISTS idx_matches_away ON matches(away_team_id);
+-- compostos (home/away, date): aceleram a busca de forma point-in-time em features_pit
+-- (a consulta filtra por time E date < t; o indice de coluna unica nao cobria o OR).
+CREATE INDEX IF NOT EXISTS idx_matches_home_date ON matches(home_team_id, date);
+CREATE INDEX IF NOT EXISTS idx_matches_away_date ON matches(away_team_id, date);
 CREATE TABLE IF NOT EXISTS meta (
     key   TEXT PRIMARY KEY,
     value TEXT

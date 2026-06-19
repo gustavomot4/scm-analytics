@@ -101,3 +101,12 @@ python -m pytest -q                 # 86 testes
 - **`gh`/`python` não reconhecido logo após instalar** → reabra o terminal.
 
 Ver também: [[MODELO_FINAL]] (o que o sistema calcula) · [[Backtest baseline (resultados)]] (validação) · [[CLAUDE]] (contexto).
+
+## 7. Simular a Copa inteira (quem tem mais chance de ser campeão)
+1. **Preencha o sorteio** em `scm_analytics/dados/copa2026.json` — os 12 grupos (A–L) com 4 seleções cada, **nomes em inglês** (padrão martj42; cheque com `python -m scm.elo_engine --top 60`). Os grupos **G e H já vêm preenchidos**; substitua os `TODO_*`. As dicas no próprio arquivo (`_dicas_pares_mesma_chave_round1`) dizem quais duplas já se enfrentaram (mesmo grupo).
+2. **Rode:**
+```
+python -m scm.simulate --sims 20000          # tabela de P(campeão/final/semi/passar)
+python -m scm.web   ->  http://127.0.0.1:5000/simulacao   # versão visual
+```
+Os jogos já disputados são **travados** automaticamente da base. É **insight**, não previsão validada — probabilidade, não certeza.

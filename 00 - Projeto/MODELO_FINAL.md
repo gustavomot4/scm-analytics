@@ -75,3 +75,7 @@ Fixos até **≥30 jogos**; depois grid minimizando Brier, congelados por fase.
 
 ## Relacionado
 [[CLAUDE]] · [[TECH_STACK]] · [[BACKLOG]] · [[camada1-planejamento-v5]] · [[camada1-revisao-v5]] · [[camada2-baseline-plano-v1]]
+
+> **Atualização 2026-06-18 — Avanço de mata-mata (output novo).** Para jogos eliminatórios, `predictor.knockout_advance` entrega a **probabilidade de avançar** (não só de vencer no tempo normal): `avanço_A = P(V)+P(E)·(0,5+ε·sinal(dr))`, ε=0,03 [a calibrar] (contrato §3.2). É releitura do 1X2 do ensemble (como os mercados, D-21/[[Decisoes tecnicas|D-31]]). Ex.: Espanha 56,9% de vitória vira **70% de avanço** vs Alemanha. Na CLI: `predict_match --mata-mata`; na interface: toggle "Jogo eliminatório".
+
+> **Atualização 2026-06-18 — Simulação do torneio (Camada 5).** `scm/simulate.py` roda o Monte Carlo da Copa inteira e entrega **a chance de título de cada seleção** (+ final/semi/passar do grupo), reaproveitando a Poisson do modelo e o `knockout_advance` (mata-mata). Sorteio em `dados/copa2026.json` (preencher — não inventado). `python -m scm.simulate` ou página `/simulacao`. Insight, não previsão validada — probabilidade, não certeza.

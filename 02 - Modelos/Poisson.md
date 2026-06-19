@@ -24,3 +24,6 @@ over 2.5 = 1 − Σ_{i+j≤2} M ; BTTS = (1−e^−λ_A)(1−e^−λ_B)
 
 ## Relacionado
 [[Forca ofensiva-defensiva]] · [[Ensemble]] · contrato [[camada1-planejamento-v5]] §3.2
+
+## Atualização (2026-06-18) — mata-mata implementado
+O avanço em mata-mata (`P(V)+P(E)·(0,5+ε·sinal(dr))`, contrato §3.2) saiu do papel: `predictor.knockout_advance` (CLI `--mata-mata`, toggle na web). Ver [[Decisoes tecnicas]] D-31 e [[MODELO_FINAL]].

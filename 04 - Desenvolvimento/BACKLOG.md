@@ -46,3 +46,6 @@ data: 2026-06-15
 - [x] **Interface local (Camada 6) — ENTREGUE:** `scm/web.py` (Flask, UI de produto) + `predict_match`. Ver [[Como rodar o sistema]].
 - [x] **Resposta ao audit técnico — ENTREGUE:** P01 (piso conserva T_m, D-22), estilo implementado+gated (D-23), curva de confiança versionada + difflib (D-24), diagnóstico de BTTS (`report --btts`). Ver [[Resposta ao audit tecnico]]. **83 testes.**
 - [x] **Mercados (Poisson) + confiança evoluída — ENTREGUE:** `predictor.markets` (over/under 0.5–4.5, totais, clean sheet, dupla chance, handicap, **quem marca 1º**) + confiança `reliab(p_max)·maturidade` calibrável (`calibrate_confidence`); na CLI e na interface. **73 testes.** [[Decisoes tecnicas|D-20]]/[[Decisoes tecnicas|D-21]].
+
+## ✅ Camada 5 (insights) — Monte Carlo do torneio ENTREGUE (2026-06-18)
+- [x] **Simulação da Copa (`scm/simulate.py`)** — P(campeão/final/semi/passar) por seleção; reusa o mata-mata (D-31); CLI + página `/simulacao`. Preencher o sorteio em `dados/copa2026.json`. Ver [[Decisoes tecnicas]] D-32. *(Cenários de classificação determinísticos seguem como futuro.)*

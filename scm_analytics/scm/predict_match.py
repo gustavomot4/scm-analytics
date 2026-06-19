@@ -96,14 +96,37 @@ def conf_label(c):
     return "alta" if c >= 60 else ("média" if c >= 40 else "baixa")
 
 
-def predict_match(conn, home, away, mando=0.0, city=None, sigma_ajuste=SIGMA_AJUSTE_DEFAULT, usar_estilo=False):
+def predict_match(conn, home, away, mando=0.0, city=None, sigma_ajuste=None, usar_estilo=False):
     a = _team(conn, home)
     b = _team(conn, away)
     if not a or not b:
         miss = home if not a else away
         return {"erro": "time não encontrado", "faltando": miss, "sugestoes": _suggest(conn, miss)}
     dr = a["elo"] - b["elo"] + mando
-    sigma_dr = math.sqrt(a["sigma_r"] ** 2 + b["sigma_r"] ** 2 + 2 * sigma_ajuste ** 2)
+    # σ informativo (#2): σ_ajuste vem da DISPERSÃO DE FORMA real de cada seleção (não mais
+    # um valor fixo); σ_R é escalado pela (in)consistência recente (vol_mult). Assim a banda
+    # e a confiança variam por confronto. banda_mando entra quando há mando (anfitrião).
+    from .features_pit import team_form, vol_mult, FeatureParams
+    from datetime import date as _date, timedelta as _td
+    fp = FeatureParams()
+    # data de referência = dia seguinte ao último jogo da base (recência sensata;
+    # uma data distante no futuro zeraria os pesos 0.9^meses -> desvio=0 espúrio).
+    _ref = conn.execute("SELECT MAX(date) FROM matches").fetchone()[0]
+    try:
+        ref_date = (_date.fromisoformat(_ref) + _td(days=1)).isoformat()
+    except (TypeError, ValueError):
+        ref_date = "2027-01-01"
+    _, dev_a, n_fa = team_form(conn, a["team_id"], ref_date, fp)
+    _, dev_b, n_fb = team_form(conn, b["team_id"], ref_date, fp)
+    if sigma_ajuste is None:
+        sa_a = fp.sigma_ajuste_c * dev_a
+        sa_b = fp.sigma_ajuste_c * dev_b
+    else:
+        sa_a = sa_b = float(sigma_ajuste)
+    sr_a = a["sigma_r"] * vol_mult(dev_a, n_fa)
+    sr_b = b["sigma_r"] * vol_mult(dev_b, n_fb)
+    banda_mando2 = 20.0 ** 2 if mando else 0.0
+    sigma_dr = math.sqrt(sr_a ** 2 + sr_b ** 2 + sa_a ** 2 + sa_b ** 2 + banda_mando2)
     ga = gd_alt(city, a["name"], b["name"]) if city else 0.0
     ea = eb = 1.0
     if usar_estilo:
@@ -136,6 +159,8 @@ def main(argv=None) -> int:
                    help="mando em Elo p/ o 1º time (0=neutro/Copa; ~40 anfitrião 2026; ~60-100 casa)")
     p.add_argument("--city", default=None, help="cidade-sede (p/ altitude; ex.: 'Mexico City', 'La Paz')")
     p.add_argument("--estilo", action="store_true", help="aplica estilo (tendência de gols) — candidato ao portão")
+    p.add_argument("--mata-mata", dest="mata_mata", action="store_true",
+                   help="jogo eliminatório: mostra a probabilidade de AVANÇAR (empate→prorrog./pênaltis)")
     args = p.parse_args(argv)
     if not Path(args.db).exists():
         print(f"[erro] {args.db} não existe. Rode ingest + elo_engine antes."); return 1
@@ -171,6 +196,10 @@ def main(argv=None) -> int:
           f"12 {mk['double_chance']['12']*100:.0f}%  ·  X2 {mk['double_chance']['X2']*100:.0f}%   |   "
           f"vencer por 2+:  {A} {mk['handicap']['a_-1.5']*100:.0f}%  ·  {B} {mk['handicap']['b_-1.5']*100:.0f}%")
     print("  placares: " + " · ".join(f"{s} {pp*100:.0f}%" for s, pp in r["poisson"]["top5"]))
+    if args.mata_mata and r.get("knockout"):
+        ko = r["knockout"]
+        print(f"  MATA-MATA (avanço):  {A} {ko['adv_a']*100:.0f}%  ·  {B} {ko['adv_b']*100:.0f}%"
+              f"   (empate→prorrogação/pênaltis; ε={ko['eps']:.2f})")
     if r.get("reliab_stale"):
         print("  ⚠ curva de confiança é de outra versão — rode 'python -m scm.calibrate_confidence'")
     print(f"  confiança: {r['conf']:.0f}/100 ({r['conf_label']})  ·  modelo {MODEL_VERSION}")

@@ -21,7 +21,14 @@ from . import db
 from .elo_engine import we
 from .ingest import DEFAULT_DB
 
-MODEL_VERSION = "baseline-v0.2.1-altitude"
+MODEL_VERSION = "baseline-v0.3-altitude"
+
+# Curva de empate empírica C1 (P_E por faixa de |dr|), CONGELADA do martj42 (n=49.423,
+# dr pré-jogo de match_ratings). Substitui o proxy fechado que a auditoria v5 proibiu
+# (camada1-revisao-v5 §1 V6 / camada1-apendice-formas-v5 §3). Reconstruível por
+# build_draw_curve(); fallback p/ o proxy se use_empirical_draw=False.
+DRAW_CURVE = ((20, 0.2847), (60, 0.2710), (100, 0.2629), (140, 0.2567), (180, 0.2451),
+              (225, 0.2303), (275, 0.2091), (350, 0.1644), (450, 0.1208), (600, 0.0554))
 
 
 @dataclass(frozen=True)
@@ -34,11 +41,14 @@ class PredictParams:
     draw_base: float = 0.27       # curva de empate C1 (proxy [a calibrar]): ~0.27 em dr=0
     draw_scale: float = 510.0     #   -> ~0.15 em |dr|=300
     draw_eps: float = 0.02        # folga do cap de coerência
+    use_empirical_draw: bool = True   # C1 empírica (DRAW_CURVE); False -> proxy fechado
+    draw_curve: tuple = DRAW_CURVE    # tabela P_E(|dr|) congelada
     n_strata: int = 200           # propagação determinística
     w_poisson: float = 0.56       # pesos sem odds (backtest histórico)
     w_elo: float = 0.44
     clamp_lo: float = 0.02
     clamp_hi: float = 0.96
+    eps_ko: float = 0.03         # mata-mata: leve vantagem do + forte no desempate [a calibrar]
 
 
 def gd_of(dr: float, p: PredictParams) -> float:
@@ -97,8 +107,63 @@ def poisson_reads(lam_a: float, lam_b: float, max_goals: int = 10) -> dict:
 
 
 def draw_prob(dr: float, p: PredictParams) -> float:
-    """P(empate) empírico-proxy (C1): decai com |dr|. [a calibrar] vs martj42."""
+    """P(empate) pela curva empírica C1 (interpolação linear em |dr|).
+
+    Usa a tabela congelada do martj42 (DRAW_CURVE) — a forma do contrato
+    (camada1-apendice-formas-v5 §3). Fallback p/ o proxy fechado se desativada.
+    """
+    if getattr(p, "use_empirical_draw", True) and p.draw_curve:
+        x = abs(dr)
+        pts = p.draw_curve
+        if x <= pts[0][0]:
+            return pts[0][1]
+        if x >= pts[-1][0]:
+            return pts[-1][1]
+        for k in range(1, len(pts)):
+            if x <= pts[k][0]:
+                x0, y0 = pts[k - 1]
+                x1, y1 = pts[k]
+                t = (x - x0) / (x1 - x0) if x1 > x0 else 0.0
+                return y0 + t * (y1 - y0)
+        return pts[-1][1]
     return p.draw_base * math.exp(-abs(dr) / p.draw_scale)
+
+
+def build_draw_curve(conn, edges=(0, 40, 80, 120, 160, 200, 250, 300, 400, 500)):
+    """Reconstrói a curva empírica P_E(|dr|) do match_ratings (dr pré-jogo). Transparência/rebuild."""
+    import bisect
+    rows = conn.execute("SELECT mr.dr, m.home_score, m.away_score "
+                        "FROM match_ratings mr JOIN matches m USING (match_id)").fetchall()
+    agg = [[0, 0] for _ in range(len(edges))]
+    for dr, hs, a in rows:
+        k = min(bisect.bisect_right(edges, abs(dr)) - 1, len(edges) - 1)
+        agg[k][0] += 1
+        agg[k][1] += 1 if hs == a else 0
+    out = []
+    for k in range(len(edges)):
+        n, d = agg[k]
+        if n == 0:
+            continue
+        center = (edges[k] + edges[k + 1]) / 2 if k + 1 < len(edges) else edges[k] + 100
+        out.append((center, round(d / n, 4), n))
+    return out
+
+
+_STD_Q_CACHE: dict = {}
+
+
+def _std_quantiles(S: int):
+    """Quantis da Normal padrão (s+0.5)/S, calculados 1x e cacheados por S.
+
+    Identidade exata: NormalDist(mu,sd).inv_cdf(q) = mu + sd*NormalDist(0,1).inv_cdf(q).
+    Evita ~S chamadas caras de inv_cdf POR JOGO (só S no total). Resultado idêntico.
+    """
+    q = _STD_Q_CACHE.get(S)
+    if q is None:
+        snd = NormalDist(0.0, 1.0)
+        q = [snd.inv_cdf((s + 0.5) / S) for s in range(S)]
+        _STD_Q_CACHE[S] = q
+    return q
 
 
 def elo_direct_read(dr: float, sigma_dr: float, p: PredictParams) -> dict:
@@ -106,12 +171,13 @@ def elo_direct_read(dr: float, sigma_dr: float, p: PredictParams) -> dict:
 
     Cap por amostra garante P(V),P(D) ∈ [0,1]. Banda = percentis 16/84 de P(V).
     """
-    nd = NormalDist(dr, max(sigma_dr, 1e-6))
+    sigma = max(sigma_dr, 1e-6)
     S = p.n_strata
+    zq = _std_quantiles(S)
     pvs = []
     spv = spe = spd = 0.0
-    for s in range(S):
-        dr_s = nd.inv_cdf((s + 0.5) / S)
+    for z in zq:
+        dr_s = dr + sigma * z
         w = we(dr_s)
         m = min(w, 1.0 - w)
         pe = max(0.0, min(draw_prob(dr_s, p), 2.0 * m - p.draw_eps))
@@ -134,6 +200,27 @@ def _clamp_norm(triple, lo, hi):
     return [x / s for x in v]
 
 
+def knockout_advance(p_v: float, p_e: float, p_d: float, dr: float,
+                     p: PredictParams = PredictParams(), eps: float = None) -> dict:
+    """Probabilidade de AVANÇAR num jogo de mata-mata (contrato §3.2).
+
+    Se empatar no tempo normal, vai a prorrogação/pênaltis. O desempate é ~moeda,
+    com leve vantagem do mais forte:
+        avanço_A = P(V) + P(E)·(0.5 + ε·sinal(dr))
+        avanço_B = P(D) + P(E)·(0.5 − ε·sinal(dr))
+    ε≈0.03 [a calibrar]. É uma RELEITURA do 1X2 do ensemble (não um novo modelo, como
+    os mercados D-21) — soma 1 por construção; não altera as predições armazenadas.
+    Simplificação declarada: prorrogação e pênaltis entram juntos no termo de empate
+    (ε absorve a pequena vantagem do mais forte no tempo extra + disputa).
+    """
+    e = p.eps_ko if eps is None else eps
+    sign = (dr > 0) - (dr < 0)              # sinal(dr) ∈ {-1, 0, +1}
+    share_a = min(1.0, max(0.0, 0.5 + e * sign))   # fração do empate que vai p/ A
+    adv_a = p_v + p_e * share_a
+    adv_b = p_d + p_e * (1.0 - share_a)    # 1−share_a garante soma exata = 1
+    return {"adv_a": adv_a, "adv_b": adv_b, "draw_share_a": share_a, "eps": e}
+
+
 def predict(dr: float, sigma_dr: float, p: PredictParams = PredictParams(),
             estilo_a: float = 1.0, estilo_b: float = 1.0, gd_alt: float = 0.0,
             heat_factor: float = 1.0) -> dict:
@@ -144,11 +231,13 @@ def predict(dr: float, sigma_dr: float, p: PredictParams = PredictParams(),
     ce = _clamp_norm((elo["pv"], elo["pe"], elo["pd"]), p.clamp_lo, p.clamp_hi)
     mix = [p.w_poisson * cp[i] + p.w_elo * ce[i] for i in range(3)]
     final = _clamp_norm(mix, p.clamp_lo, p.clamp_hi)
+    ko = knockout_advance(final[0], final[1], final[2], dr, p)
     return {
         "p_v": final[0], "p_e": final[1], "p_d": final[2],
         "band_pv_lo": elo["band_lo"], "band_pv_hi": elo["band_hi"],
         "lambda_a": la, "lambda_b": lb,
         "p_over25": pois["over25"], "p_btts": pois["btts"],
+        "knockout": ko,
         "poisson": pois, "elo": elo,
     }
 

@@ -20,6 +20,8 @@ def create_app(db_path=None):
 
     app = Flask(__name__)
     app.config["DB"] = str(db_path or DEFAULT_DB)
+    from .simulate import DEFAULT_CONFIG
+    app.config["CONFIG"] = str(DEFAULT_CONFIG)
 
     @app.get("/")
     def index():
@@ -57,8 +59,31 @@ def create_app(db_path=None):
             "lambda_a": r["lambda_a"], "lambda_b": r["lambda_b"],
             "p_over25": r["p_over25"], "p_btts": r["p_btts"],
             "scores": r["poisson"]["top5"], "conf": r["conf"], "conf_label": r["conf_label"],
-            "markets": r["markets"],
+            "markets": r["markets"], "knockout": r.get("knockout"),
         })
+
+    @app.get("/simulacao")
+    def simulacao():
+        return render_template("simulacao.html")
+
+    @app.get("/api/simulate")
+    def api_simulate():
+        from .simulate import run, load_config, validate, get_elos
+        try:
+            sims = int(request.args.get("sims", 5000) or 5000)
+        except ValueError:
+            sims = 5000
+        sims = max(200, min(sims, 50000))
+        cfg_path = app.config["CONFIG"]
+        if not Path(cfg_path).exists():
+            return jsonify({"erro": "sorteio não encontrado — preencha dados/copa2026.json"})
+        conn = db.connect(app.config["DB"])
+        cfg, groups = load_config(cfg_path)
+        warnings = validate(groups, get_elos(conn))
+        res = run(conn, cfg_path, n_sims=sims)
+        conn.close()
+        res["warnings"] = warnings
+        return jsonify(res)
 
     return app
 
