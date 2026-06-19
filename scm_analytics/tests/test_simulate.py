@@ -18,9 +18,12 @@ def _db48():
     return c, groups, names
 
 
-def _write_cfg(groups, hosts=None):
+def _write_cfg(groups, hosts=None, alt=None):
     fd, path = tempfile.mkstemp(suffix=".json"); os.close(fd)
-    json.dump({"groups": groups, "hosts": hosts or {}}, open(path, "w"))
+    cfg = {"groups": groups, "hosts": hosts or {}}
+    if alt:
+        cfg["altitude_venues"] = alt
+    json.dump(cfg, open(path, "w"))
     return path
 
 
@@ -73,3 +76,23 @@ def test_assign_thirds_valid_for_all_combos():
         if len(a) != 8 or set(a.values()) != set(combo) or any(g not in THIRD_SLOTS[s] for s, g in a.items()):
             bad += 1
     assert bad == 0                                       # Anexo C garante alocação p/ toda combinação
+
+
+def test_altitude_boosts_host_in_groups():
+    """N2/D-37: anfitrião adaptado em sede de altitude avança mais (gd_alt nos jogos de grupo)."""
+    c = db.connect(":memory:"); db.init_schema(c)
+    names = ["Mexico"] + [f"T{i:02d}" for i in range(47)]   # Mexico (adaptada) no grupo A
+    for i, n in enumerate(names):
+        tid = db.get_or_create_team(c, n)
+        elo = 1750 if n == "Mexico" else 2000 - i * 14
+        c.execute("INSERT INTO ratings_current(team_id,elo,sigma_r,n_games,provisional) VALUES (?,?,40,100,0)",
+                  (tid, elo))
+    c.commit()
+    groups = {chr(65 + g): [names[g + 12 * pot] for pot in range(4)] for g in range(12)}
+    base = sim.run(c, _write_cfg(groups), n_sims=1500, seed=5)
+    boosted = sim.run(c, _write_cfg(groups, alt={"Mexico": "Mexico City"}), n_sims=1500, seed=5)
+    c.close()
+    pb = next(r["p_advance"] for r in base["table"] if r["team"] == "Mexico")
+    ph = next(r["p_advance"] for r in boosted["table"] if r["team"] == "Mexico")
+    assert ph > pb                                          # altitude favorece o anfitrião adaptado
+    assert sum(r["p_champion"] for r in boosted["table"]) == pytest.approx(1.0, abs=1e-9)

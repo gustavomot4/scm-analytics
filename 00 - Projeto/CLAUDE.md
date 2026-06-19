@@ -108,3 +108,14 @@ Aplicadas as correções de **consistência** de [[Auditoria tecnica completa (2
 - **D-36:** `--estilo` rotulado `[EXPERIMENTAL]` (rejeitado pelo portão, D-23).
 
 **Estado canônico (reconciliação P-K):** modelo **`baseline-v0.3-altitude`** (`predictor.MODEL_VERSION`); **18 arquivos de teste** em `tests/` (+1 caso novo `test_dr_includes_recent_form`). As menções antigas a `v0.2`/`v0.2.1` e a contagens "73/86/92" nesta nota e no `README` são **históricas** — vale o que está em `predictor.MODEL_VERSION`. **Aberto** (Fase 1+ do audit): Dixon-Coles/diversidade real do ensemble, σ estrutural (Glicko/TrueSkill), altitude no Monte Carlo (`simulate`, N2), mando do anfitrião no portão, Camada 3 (desfalques), validação prospectiva fechada. **Não rodei `pytest`** nesta sessão (sandbox sem pytest/rede) — validei a lógica com um harness numpy+sqlite; **rode `python -m pytest -q` na sua máquina** após o pull.
+
+## ▶ Atualização 2026-06-19 (b) — melhorias do audit (Fases 1–3)
+Implementadas mais correções de [[Auditoria tecnica completa (2026-06-19)]], **com portão real rodado no `dados/scm.sqlite` local** (reproduzi Brier 0,5366 / +0,0028 vs Elo antes de mexer):
+- **D-37 — Altitude no Monte Carlo** (`simulate.py` + `copa2026.json` `altitude_venues`). México: avanço 98,5%→99,9%, título 3,1%→4,0%.
+- **D-38 — Registro prospectivo** (`scm/registrar.py`, register/settle/report, imutável) → mede Brier real da Copa. **Use agora**, jogo a jogo.
+- **D-41 — Camada 3 desfalques** (`scm/desfalques.py` + hook em `predict_match`); JSON que você preenche.
+- **D-42 — σ Glicko** (`scm/sigma_glicko.py`, candidato OFF): RD varia 51–64 nas elites (σ_r era ~40 fixo). Adotar exige rebuild + portão de banda.
+- **D-39/D-40 — Dixon-Coles e recalibração 1X2: TESTADOS e REJEITADOS pelo portão** (DC ρ=−0,06 piora BTTS; recal T=1,0). Ficam como candidatos OFF (`dixon_coles.py`, `calibrate_1x2.py`).
+- **D-43 — Higiene:** núcleo único `predictor.ved_from_elo` (idêntico em grade), `tests/conftest.py`, `requirements` com teto de major.
+
+**Lição (importante):** com os dados atuais, **ajustes paramétricos no núcleo não vencem o portão** (DC/recal rejeitados) — o motor está no teto. Ganho real agora vem de **dados novos** (desfalques/odds/xG via D-41 e schema-alvo) ou de **σ informativo** (D-42, validar). Módulos novos: `tests/` agora cobre registrar/desfalques/dixon_coles/calibrate_1x2/sigma_glicko. **Rode `pytest` na sua máquina após o pull.**

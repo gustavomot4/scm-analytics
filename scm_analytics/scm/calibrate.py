@@ -51,12 +51,11 @@ def precompute_strata(rows, S):
 
 
 def _elo_read(strata, p):
+    from .predictor import ved_from_elo
     spv = spe = spd = 0.0
     for dr_s in strata:
-        w = we(dr_s); m = min(w, 1.0 - w)
-        pe = max(0.0, min(draw_prob(dr_s, p), 2.0 * m - p.draw_eps))
-        pv = w - pe / 2.0
-        spv += pv; spe += pe; spd += 1.0 - pv - pe
+        pv, pe, pd = ved_from_elo(dr_s, p)      # núcleo único (D-43)
+        spv += pv; spe += pe; spd += pd
     S = len(strata)
     return (spv / S, spe / S, spd / S)
 

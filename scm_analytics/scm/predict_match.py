@@ -99,7 +99,8 @@ def conf_label(c):
     return "alta" if c >= 60 else ("média" if c >= 40 else "baixa")
 
 
-def predict_match(conn, home, away, mando=0.0, city=None, sigma_ajuste=None, usar_estilo=False):
+def predict_match(conn, home, away, mando=0.0, city=None, sigma_ajuste=None, usar_estilo=False,
+                  desfalques=None):
     a = _team(conn, home)
     b = _team(conn, away)
     if not a or not b:
@@ -135,6 +136,13 @@ def predict_match(conn, home, away, mando=0.0, city=None, sigma_ajuste=None, usa
     banda_mando2 = 20.0 ** 2 if mando else 0.0
     sigma_dr = math.sqrt(sr_a ** 2 + sr_b ** 2 + sa_a ** 2 + sa_b ** 2 + banda_mando2)
     ga = gd_alt(city, a["name"], b["name"]) if city else 0.0
+    # Camada 3 (D-41): desfalques direcionais — ataque corta GD; defesa/goleiro mexe no dr.
+    dr_desf = gd_desf = 0.0
+    if desfalques:
+        from .desfalques import match_deltas
+        dr_desf, gd_desf = match_deltas(desfalques.get("home", []), desfalques.get("away", []))
+        dr += dr_desf
+        ga += gd_desf
     ea = eb = 1.0
     if usar_estilo:
         from .estilo import team_styles
@@ -154,7 +162,7 @@ def predict_match(conn, home, away, mando=0.0, city=None, sigma_ajuste=None, usa
     mk = markets(pr["lambda_a"], pr["lambda_b"], PredictParams().max_goals)
     return {"home": a["name"], "away": b["name"], "elo_home": a["elo"], "elo_away": b["elo"],
             "sigma_home": a["sigma_r"], "sigma_away": b["sigma_r"], "dr": dr, "sigma_dr": sigma_dr,
-            "gd_alt": ga, "estilo_a": ea, "estilo_b": eb,
+            "gd_alt": ga, "dr_desf": dr_desf, "gd_desf": gd_desf, "estilo_a": ea, "estilo_b": eb,
             "provisional": bool(a["provisional"] or b["provisional"]),
             "reliab_stale": bool(reliab_model and reliab_model != MODEL_VERSION),
             "conf": conf, "conf_label": conf_label(conf), "markets": mk, **pr}

@@ -18,7 +18,12 @@ scm_analytics/
 │   ├── altitude.py       # [C2.5/E1] termo GD_alt (ADOTADO)
 │   ├── heat.py           # [C2.5/E3] termo de calor (rejeitado)
 │   ├── calibrate_confidence.py # confiança ancorada no backtest
-│   ├── predict_match.py  # prever um confronto (porta da frente)
+│   ├── predict_match.py  # prever um confronto (porta da frente) — forma (D-34) + desfalques (D-41)
+│   ├── registrar.py      # [P-G] registro prospectivo: register/settle/report (Brier real da Copa)
+│   ├── desfalques.py     # [P-F] Camada 3: ajuste direcional por lesões/suspensões (JSON)
+│   ├── dixon_coles.py    # [P-A] candidato τ — TESTADO e REJEITADO pelo portão (OFF)
+│   ├── calibrate_1x2.py  # [P-C] candidato recalibração 1X2 — REJEITADO (OFF)
+│   ├── sigma_glicko.py   # [P-B] candidato σ Glicko (RD varia) — validar na sua máquina (OFF)
 │   ├── web.py            # interface web local (Flask)
 │   └── templates/index.html   # UI (design de produto)
 ├── tests/                # pytest (sem rede; fixtures) — 18 arquivos de teste

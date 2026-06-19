@@ -354,3 +354,19 @@ Aplicadas e verificadas (harness numpy+sqlite — **pytest indisponível no sand
 **Verificação:** harness reproduz os invariantes dos testes existentes de `predict_match`/`predictor`/`simulate` (coerência [0,1], soma 1, Σcampeão=1, Σpassar=32, altitude/mando favorecem o mandante, etc.) — **26/26 ok** após as mudanças, no FS nativo (a mount do sandbox serve `.py` recém-escritos de forma intermitente/stale → D-16; verificação feita sobre cópia em `/tmp`).
 
 **Não incluído nesta rodada** (Fase 1+ do roadmap, exigem dados e/ou portão de backtest — fora do escopo "consistência"): **N2** (altitude no Monte Carlo do `simulate` — precisa do mapa jogo→sede de 2026, **não inventar**), **P-A** (Dixon-Coles / diversidade real do ensemble), **P-B** (σ estrutural — Glicko/TrueSkill), **P-C** (recalibração isotônica), **P-D** (forma saturante), **P-E** (mando do anfitrião no portão), **P-F** (Camada 3 — desfalques), **P-G** (validação prospectiva fechada), **P-H** (schema-alvo). Continuam no [[BACKLOG]].
+
+## Follow-up (b) (2026-06-19) — Fases 1–3 (com portão real no DB local)
+
+Reproduzi primeiro os números do backtest no `dados/scm.sqlite` (Brier 0,5366; +0,0028 vs Elo público IC[+0,0023,+0,0033]) — então o portão abaixo é real, não estimado.
+
+| # | Item | Estado | Evidência |
+|---|---|---|---|
+| N2 | Altitude no Monte Carlo | ✅ **adotado** (D-37) | `simulate` aplica `gd_alt` nos jogos de grupo do anfitrião (`copa2026.json` `altitude_venues`). México: avanço 98,5%→99,9%, título 3,1%→4,0%; Σcampeão=1, Σpassa=32 |
+| P-G | Validação prospectiva | ✅ **entregue** (D-38) | `scm/registrar.py` register/settle/report, imutável (versão+hash). Fecha o laço da Copa |
+| P-F | Camada 3 (desfalques) | ✅ **mecanismo entregue** (D-41) | `scm/desfalques.py` + hook; ataque-chave do mandante reduz P(V)/λ_a. Magnitudes [a calibrar]; dados via JSON do usuário |
+| P-A | Dixon-Coles | 🔴 **testado, REJEITADO** (D-39) | ρ_MLE=−0,06 mas BTTS ΔBrier **−0,0007 IC[−0,0008,−0,0006]** (piora) e placar não significativo. Viés é de nível (T_base), não correlação. Candidato OFF |
+| P-C | Recalibração 1X2 | 🔴 **testada, REJEITADA** (D-40) | temperatura T*=1,0 (nada a corrigir); isotônica piora fora de amostra (ΔBrier −0,0021 IC<0). Modelo já calibrado. Candidato OFF |
+| P-B | σ informativo (Glicko) | 🟡 **candidato** (D-42) | `scm/sigma_glicko.py`: RD varia 51–64 nas top-14 (era ~40 fixo) → degenerescência resolvida. Adotar = rebuild + portão de banda na máquina do usuário |
+| P-I/J | Higiene | ✅ **parcial** (D-43) | `predictor.ved_from_elo` (núcleo único, idêntico em 165 pts de grade); `conftest.py`; `requirements` com teto de major |
+
+**Conclusão desta rodada.** Os ganhos de **produto/validação** entraram (altitude no torneio, registro prospectivo, mecanismo de desfalques). Os ganhos de **precisão paramétrica** (DC, recalibração) **não passaram o portão** — confirmando que, com os dados atuais, o núcleo Elo→Poisson está perto do teto e que o caminho para mais acurácia é **dado novo** (desfalques/odds/xG) e **σ informativo** (Glicko), não mais fórmulas. Ainda **abertos** (Fase 2–3): adotar σ-Glicko após o portão de banda (P-B), mando do anfitrião no portão (P-E), schema-alvo (P-H), odds/mercado, e preencher o registro prospectivo a cada rodada (P-G em uso).

@@ -128,14 +128,9 @@ def elo_baseline_read(dr, p=None):
     SEM altitude, SEM Poisson, SEM propagacao, SEM ensemble. E o comparador minimo
     exigido pelo aceite (camada2-planejamento-v1 §5.1) — bem mais forte que o uniforme.
     """
-    from .predictor import PredictParams, draw_prob, _clamp_norm
-    from .elo_engine import we
+    from .predictor import PredictParams, ved_from_elo, _clamp_norm
     p = p or PredictParams()
-    w = we(dr)
-    m = min(w, 1.0 - w)
-    pe = max(0.0, min(draw_prob(dr, p), 2.0 * m - p.draw_eps))
-    pv = w - pe / 2.0
-    pd = 1.0 - pv - pe
+    pv, pe, pd = ved_from_elo(dr, p)        # núcleo único (D-43)
     v = _clamp_norm((pv, pe, pd), p.clamp_lo, p.clamp_hi)
     return {"p_v": v[0], "p_e": v[1], "p_d": v[2]}
 

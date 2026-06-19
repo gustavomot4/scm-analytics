@@ -68,3 +68,13 @@ data: 2026-06-15
 - [ ] **[P2] P-H** — evoluir **schema-alvo** (venues/context/odds/statsbomb).
 - [ ] **[P2] N5** — versionar `copa2026.json` (config do torneio) p/ reprodutibilidade do `simulate`.
 - [ ] **[P3]** Faxina (P-I): centralizar a leitura Elo-direto (3 cópias), `conftest.py`, context managers, `logging`; pinar deps (P-J); `natural_key` com cidade (P-L); benchmark de Elo automatizado (P-M).
+
+## ✅ Round 2 — melhorias do audit ENTREGUES (2026-06-19b)
+> Portão rodado no `dados/scm.sqlite` local (Brier 0,5366 reproduzido). Ver [[Auditoria tecnica completa (2026-06-19)]] follow-up (b) e [[Decisoes tecnicas]] D-37..D-43.
+- [x] **N2 — altitude no Monte Carlo** (D-37): `simulate` + `copa2026.json altitude_venues`. México avança 98,5→99,9%, título 3,1→4,0%.
+- [x] **P-G — registro prospectivo** (D-38): `scm/registrar.py` (register/settle/report, imutável). **Usar a cada jogo da Copa.**
+- [x] **P-F — Camada 3 desfalques** (D-41): `scm/desfalques.py` + hook em `predict_match` (dado via JSON do usuário).
+- [x] **P-A — Dixon-Coles**: TESTADO e **REJEITADO** pelo portão (D-39, ρ=−0,06 piora BTTS). Candidato OFF `dixon_coles.py`.
+- [x] **P-C — recalibração 1X2**: TESTADA e **REJEITADA** (D-40, T*=1,0). Candidato OFF `calibrate_1x2.py`.
+- [x] **Higiene**: `predictor.ved_from_elo` (núcleo único, idêntico em grade), `conftest.py`, `requirements` com teto (D-43).
+- [ ] **[P1] P-B — σ Glicko**: candidato pronto (`sigma_glicko.py`, RD varia 51–64); **adotar após rebuild + portão de cobertura de banda** (sua máquina).

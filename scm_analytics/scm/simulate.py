@@ -31,6 +31,7 @@ import numpy as np
 from . import db
 from .ingest import DEFAULT_DB
 from .predictor import PredictParams, lambdas, MODEL_VERSION
+from .altitude import gd_alt
 
 DEFAULT_CONFIG = Path(__file__).resolve().parent.parent / "dados" / "copa2026.json"
 ADVANCE_PER_GROUP = 2          # 2 melhores de cada grupo
@@ -140,8 +141,14 @@ def build_lambda_table(teams, elos, p, hosts=None) -> dict:
     return tab
 
 
-def _sim_group(teams, tab, played, rng):
-    """Roda 1 grupo. Retorna lista ordenada [(team, pts, gd, gf)] do 1º ao 4º."""
+def _sim_group(teams, tab, played, rng, p=None, alt_venues=None):
+    """Roda 1 grupo. Retorna lista ordenada [(team, pts, gd, gf)] do 1º ao 4º.
+
+    N2 (D-37): se `alt_venues` traz a sede de altitude de um anfitrião (ex.: {"Mexico":
+    "Mexico City"}), os jogos de GRUPO desse time recebem `gd_alt` (favorece o adaptado),
+    reusando `predictor.lambdas(..., gd_alt=...)` — o MESMO termo já adotado no predict_match.
+    Mata-mata segue neutro (a sede varia por chave) — simplificação declarada.
+    """
     pts = {t: 0 for t in teams}
     gf = {t: 0 for t in teams}
     ga = {t: 0 for t in teams}
@@ -151,7 +158,11 @@ def _sim_group(teams, tab, played, rng):
         elif (b, a) in played:
             xb, xa = played[(b, a)]
         else:
-            _, la, lb = tab[(a, b)]
+            if alt_venues and p is not None and (a in alt_venues or b in alt_venues):
+                city = alt_venues.get(a) or alt_venues.get(b)   # sede do anfitrião adaptado
+                la, lb = lambdas(tab[(a, b)][0], p, gd_alt=gd_alt(city, a, b))
+            else:
+                _, la, lb = tab[(a, b)]
             xa, xb = int(rng.poisson(la)), int(rng.poisson(lb))
         gf[a] += xa; ga[a] += xb; gf[b] += xb; ga[b] += xa
         if xa > xb: pts[a] += 3
@@ -171,12 +182,12 @@ def _knockout_winner(a, b, tab, rng, eps):
     return a if rng.random() < share_a else b
 
 
-def simulate_once(groups, tab, played, rng, p):
+def simulate_once(groups, tab, played, rng, p, alt_venues=None):
     """1 simulação completa pelo CHAVEAMENTO OFICIAL. Retorna (champion, finalists, semis, advancers)."""
     firsts, seconds, thirds = {}, {}, []
     advancers = set()
     for g, teams in groups.items():
-        rank = _sim_group(teams, tab, played, rng)
+        rank = _sim_group(teams, tab, played, rng, p, alt_venues)
         firsts[g] = rank[0][0]; seconds[g] = rank[1][0]
         thirds.append((g,) + rank[2])              # (grupo, team, pts, gd, gf)
         advancers.add(firsts[g]); advancers.add(seconds[g])
@@ -209,13 +220,14 @@ def run(conn, config_path=DEFAULT_CONFIG, n_sims=20000, seed=12345):
     p = PredictParams()
     teams = [t for g in groups.values() for t in g]
     tab = build_lambda_table(teams, elos, p, hosts=cfg.get("hosts"))
+    alt_venues = cfg.get("altitude_venues")   # N2: {time anfitrião: cidade-sede de altitude}
     rng = np.random.default_rng(seed)
     champ = {t: 0 for t in teams}
     fin = {t: 0 for t in teams}
     semi = {t: 0 for t in teams}
     adv = {t: 0 for t in teams}
     for _ in range(n_sims):
-        c, f, s, a = simulate_once(groups, tab, played, rng, p)
+        c, f, s, a = simulate_once(groups, tab, played, rng, p, alt_venues)
         champ[c] += 1
         for t in f: fin[t] += 1
         for t in s: semi[t] += 1

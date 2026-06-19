@@ -166,6 +166,20 @@ def _std_quantiles(S: int):
     return q
 
 
+def ved_from_elo(dr_s: float, p: PredictParams):
+    """V/E/D de UMA amostra dr_s pela leitura Elo-direto (we + curva C1 + cap de coerência).
+
+    NÚCLEO ÚNICO (D-43): reusado por `elo_direct_read`, `backtest_harness.elo_baseline_read`
+    e `calibrate._elo_read` — antes a mesma fórmula vivia copiada em 3 lugares (risco de
+    divergirem). Matematicamente idêntico ao código anterior (verificado em grade).
+    """
+    w = we(dr_s)
+    m = min(w, 1.0 - w)
+    pe = max(0.0, min(draw_prob(dr_s, p), 2.0 * m - p.draw_eps))
+    pv = w - pe / 2.0
+    return pv, pe, 1.0 - pv - pe
+
+
 def elo_direct_read(dr: float, sigma_dr: float, p: PredictParams) -> dict:
     """Leitura Elo-direto PROPAGADA (estratos determinísticos de igual probabilidade).
 
@@ -178,11 +192,7 @@ def elo_direct_read(dr: float, sigma_dr: float, p: PredictParams) -> dict:
     spv = spe = spd = 0.0
     for z in zq:
         dr_s = dr + sigma * z
-        w = we(dr_s)
-        m = min(w, 1.0 - w)
-        pe = max(0.0, min(draw_prob(dr_s, p), 2.0 * m - p.draw_eps))
-        pv = w - pe / 2.0
-        pd = 1.0 - pv - pe
+        pv, pe, pd = ved_from_elo(dr_s, p)
         pvs.append(pv)
         spv += pv
         spe += pe
