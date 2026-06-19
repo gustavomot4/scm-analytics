@@ -79,6 +79,17 @@ CREATE TABLE IF NOT EXISTS predictions (
     p_over25 REAL, p_btts REAL,
     PRIMARY KEY (match_id, versao_modelo)
 );
+-- odds de mercado (D-44 / P-H): probabilidades JÁ sem vig (de-vigged), por fonte.
+-- 3a perna do ensemble (peso 0.20, contrato §3.8) quando houver; captura manual (sem
+-- histórico gratuito). natural_key = date|home|away p/ casar jogos futuros sem match_id.
+CREATE TABLE IF NOT EXISTS odds_hist (
+    natural_key TEXT NOT NULL,
+    match_id    INTEGER REFERENCES matches(match_id),
+    p_home REAL, p_draw REAL, p_away REAL,
+    source TEXT,
+    asof   TEXT,
+    PRIMARY KEY (natural_key, source)
+);
 """
 
 

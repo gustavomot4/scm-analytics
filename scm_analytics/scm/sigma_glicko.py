@@ -80,14 +80,91 @@ def run(conn, c_infl: float = C_INFL) -> dict:
     return rd
 
 
+def run_pit(conn) -> dict:
+    """{match_id: (home_rd_pre, away_rd_pre)} — RD PRÉ-jogo (point-in-time) p/ backtest/portão."""
+    rows = conn.execute(
+        """SELECT m.match_id, m.date, m.home_team_id h, m.away_team_id a,
+                  mr.home_elo_pre he, mr.away_elo_pre ae
+           FROM matches m JOIN match_ratings mr USING (match_id)
+           ORDER BY m.date, m.match_id"""
+    ).fetchall()
+    rd, last, out = {}, {}, {}
+    for r in rows:
+        h, a = r["h"], r["a"]
+        hrd = _inflate(rd.get(h, RD0), _months(last.get(h), r["date"]))
+        ard = _inflate(rd.get(a, RD0), _months(last.get(a), r["date"]))
+        out[r["match_id"]] = (hrd, ard)        # snapshot ANTES de atualizar (anti look-ahead)
+        eh = 1.0 / (1.0 + 10.0 ** (-_g(ard) * (r["he"] - r["ae"]) / 400.0))
+        ea = 1.0 / (1.0 + 10.0 ** (-_g(hrd) * (r["ae"] - r["he"]) / 400.0))
+        for me, my_rd, opp_rd, E in ((h, hrd, ard, eh), (a, ard, hrd, ea)):
+            var = E * (1.0 - E)
+            new = my_rd if var < 1e-9 else math.sqrt(1.0 / (1.0 / (my_rd * my_rd)
+                                                            + Q * Q * _g(opp_rd) ** 2 * var))
+            rd[me] = max(RD_FLOOR, new)
+            last[me] = r["date"]
+    return out
+
+
+def gate_band(conn, versao=None, only_major=True) -> dict:
+    """Portão de σ: cobertura de banda (por faixa de p_v) com σ_R atual vs RD-Glicko PIT.
+
+    Adotar SÓ se o Glicko aproximar a cobertura do nominal (~68%). RESULTADO no DB local
+    (martj42, recorte torneios): a banda ATUAL já SOBRE-cobre (~92% vs 68%) e o Glicko a
+    ALARGA mais (largura 0,134→0,184) sem melhorar → **não adotar**. Sinaliza que o ajuste
+    certo seria ENCOLHER σ_dr (banda larga demais), não trocar por Glicko. Candidato OFF.
+    """
+    from .predictor import PredictParams, elo_direct_read
+    from .report import band_coverage_binned
+    from .backtest_harness import MAJOR
+    from .predictor import MODEL_VERSION
+    p = PredictParams()
+    versao = versao or MODEL_VERSION
+    q = ("SELECT p.match_id, p.p_v, p.band_pv_lo lo, p.band_pv_hi hi, f.dr_adj dr, "
+         "f.sigma_ajuste_home sah, f.sigma_ajuste_away saa, m.home_score hs, m.away_score s "
+         "FROM predictions p JOIN match_features f USING(match_id) JOIN matches m USING(match_id) "
+         "WHERE p.versao_modelo=? AND m.home_score IS NOT NULL")
+    params = [versao]
+    if only_major:
+        q += " AND m.tournament IN (%s)" % ",".join("?" * len(MAJOR))
+        params += list(MAJOR)
+    rows = conn.execute(q, params).fetchall()
+    if not rows:
+        return {"n": 0}
+    pit = run_pit(conn)
+    old_i, new_i = [], []
+    for r in rows:
+        hw = 1 if r["hs"] > r["s"] else 0
+        old_i.append({"p_v": r["p_v"], "lo": r["lo"], "hi": r["hi"], "home_won": hw})
+        rd_h, rd_a = pit[r["match_id"]]
+        sdr = math.sqrt(rd_h ** 2 + rd_a ** 2 + r["sah"] ** 2 + r["saa"] ** 2)
+        e = elo_direct_read(r["dr"], sdr, p)
+        new_i.append({"p_v": r["p_v"], "lo": e["band_lo"], "hi": e["band_hi"], "home_won": hw})
+    co = band_coverage_binned(old_i); cn = band_coverage_binned(new_i)
+    adota = (cn["n_bins_covered"] > co["n_bins_covered"]
+             or abs((cn["coverage_weighted"] or 0) - 0.68) < abs((co["coverage_weighted"] or 0) - 0.68) - 0.02)
+    return {"n": len(rows), "old": co, "new": cn, "adota": bool(adota)}
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="σ Glicko (candidato): mostra o RD por seleção (varia, ≠ σ_r fixo).")
     ap.add_argument("--db", default=str(DEFAULT_DB))
     ap.add_argument("--top", type=int, default=20)
+    ap.add_argument("--gate", action="store_true", help="portão de cobertura de banda (σ atual vs Glicko)")
     args = ap.parse_args(argv)
     if not Path(args.db).exists():
         print(f"[erro] {args.db} não existe. Rode ingest + elo_engine antes."); return 1
     conn = db.connect(args.db)
+    if args.gate:
+        g = gate_band(conn)
+        conn.close()
+        if not g.get("n"):
+            print("sem dados p/ o portão (rode o pipeline)."); return 1
+        co, cn = g["old"], g["new"]
+        print(f"\n  PORTÃO σ (cobertura de banda, n={g['n']}, nominal ~68%)")
+        print(f"  σ ATUAL : {co['n_bins_covered']}/{co['n_bins']} faixas · cobertura {co['coverage_weighted']*100:.0f}% · largura {co['mean_width']:.3f}")
+        print(f"  σ GLICKO: {cn['n_bins_covered']}/{cn['n_bins']} faixas · cobertura {cn['coverage_weighted']*100:.0f}% · largura {cn['mean_width']:.3f}")
+        print(f"  → {'ADOTAR Glicko ✓' if g['adota'] else 'NÃO adotar — banda já sobre-cobre; Glicko alarga mais (manter σ_r)'}\n")
+        return 0
     from .elo_engine import sigma_r, EloParams
     ep = EloParams()
     rd = run(conn)

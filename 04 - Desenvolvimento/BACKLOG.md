@@ -77,4 +77,7 @@ data: 2026-06-15
 - [x] **P-A — Dixon-Coles**: TESTADO e **REJEITADO** pelo portão (D-39, ρ=−0,06 piora BTTS). Candidato OFF `dixon_coles.py`.
 - [x] **P-C — recalibração 1X2**: TESTADA e **REJEITADA** (D-40, T*=1,0). Candidato OFF `calibrate_1x2.py`.
 - [x] **Higiene**: `predictor.ved_from_elo` (núcleo único, idêntico em grade), `conftest.py`, `requirements` com teto (D-43).
-- [ ] **[P1] P-B — σ Glicko**: candidato pronto (`sigma_glicko.py`, RD varia 51–64); **adotar após rebuild + portão de cobertura de banda** (sua máquina).
+- [x] **P-B — σ Glicko: portão de banda RODADO → NÃO adotado** (D-42): RD varia 51–64 (resolve a degenerescência), mas a banda já sobre-cobre (~92% vs 68%) e o Glicko a alarga (0,134→0,184). Candidato OFF com `run_pit`+`gate_band` prontos. *Achado: o certo é ENCOLHER σ_dr (banda larga demais) — novo card.*
+- [x] **P-H (parcial) — esqueleto de odds/mercado** (D-44): `odds_hist` + `scm/odds.py` (de-vig) + `predict_match(odds=...)` mistura mercado no peso 0,20. Falta a captura periódica (manual) e backtest com série de mercado.
+- [ ] **[P1] Encolher/ calibrar σ_dr** (novo, do portão de banda): a banda sobre-cobre (~92% vs 68%) → escalar σ_dr para baixo e re-gatear a cobertura.
+- [ ] **[P1] P-E** mando do anfitrião no portão · **[P2]** captura periódica de odds + comparador de mercado na UI · **[P2]** xG (StatsBomb) como prior.

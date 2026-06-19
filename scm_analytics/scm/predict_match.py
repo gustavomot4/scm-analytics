@@ -100,7 +100,7 @@ def conf_label(c):
 
 
 def predict_match(conn, home, away, mando=0.0, city=None, sigma_ajuste=None, usar_estilo=False,
-                  desfalques=None):
+                  desfalques=None, odds=None):
     a = _team(conn, home)
     b = _team(conn, away)
     if not a or not b:
@@ -149,6 +149,14 @@ def predict_match(conn, home, away, mando=0.0, city=None, sigma_ajuste=None, usa
         st, _ = team_styles(conn)
         ea, eb = st.get(a["team_id"], 1.0), st.get(b["team_id"], 1.0)
     pr = predict(dr, sigma_dr, PredictParams(), estilo_a=ea, estilo_b=eb, gd_alt=ga)
+    # 3ª perna do ensemble (D-44): se houver odds, mistura o 1X2 com o mercado (peso 0.20,
+    # contrato §3.8). odds = (odd_casa, odd_empate, odd_fora) decimais. Mercados λ ficam do modelo.
+    mercado = None
+    if odds:
+        from .odds import implied_probs, blend as _blend
+        mercado = implied_probs(*odds)
+        bl = _blend({"p_v": pr["p_v"], "p_e": pr["p_e"], "p_d": pr["p_d"]}, mercado)
+        pr["p_v"], pr["p_e"], pr["p_d"] = bl["p_v"], bl["p_e"], bl["p_d"]
     # banda recentrada no ponto do ensemble (largura = incerteza propagada da leitura Elo-direto)
     hw = (pr["band_pv_hi"] - pr["band_pv_lo"]) / 2.0
     pr["band_pv_lo"] = max(0.01, pr["p_v"] - hw)
@@ -162,7 +170,8 @@ def predict_match(conn, home, away, mando=0.0, city=None, sigma_ajuste=None, usa
     mk = markets(pr["lambda_a"], pr["lambda_b"], PredictParams().max_goals)
     return {"home": a["name"], "away": b["name"], "elo_home": a["elo"], "elo_away": b["elo"],
             "sigma_home": a["sigma_r"], "sigma_away": b["sigma_r"], "dr": dr, "sigma_dr": sigma_dr,
-            "gd_alt": ga, "dr_desf": dr_desf, "gd_desf": gd_desf, "estilo_a": ea, "estilo_b": eb,
+            "gd_alt": ga, "dr_desf": dr_desf, "gd_desf": gd_desf, "mercado": mercado,
+            "estilo_a": ea, "estilo_b": eb,
             "provisional": bool(a["provisional"] or b["provisional"]),
             "reliab_stale": bool(reliab_model and reliab_model != MODEL_VERSION),
             "conf": conf, "conf_label": conf_label(conf), "markets": mk, **pr}
