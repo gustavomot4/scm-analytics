@@ -39,6 +39,10 @@ python -m venv .venv && source .venv/bin/activate    # Windows: .venv\Scripts\Ac
 pip install -r requirements.txt
 python -m scm.ingest --download && python -m scm.ingest && python -m scm.elo_engine && python -m scm.features_pit && python -m scm.predictor
 python -m scm.predict_match "Brazil" "Argentina"     # prever no terminal
+python -m scm.predict_match "Mexico" "South Korea" --odds 2.5 3.3 2.8   # mistura mercado (20%) no 1X2
+python -m scm.simulate --bracket                     # chaveamento mais provável (a "história")
+python -m scm.simulate                               # Monte Carlo: P de título por seleção (rigoroso)
+python -m scm.registrar register "Mexico" "South Korea" --date 2026-06-20 --city "Mexico City"
 python -m scm.web                                    # interface -> http://127.0.0.1:5000
 python -m pytest -q                                  # roda a suíte de testes
 ```

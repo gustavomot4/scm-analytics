@@ -119,3 +119,10 @@ Implementadas mais correções de [[Auditoria tecnica completa (2026-06-19)]], *
 - **D-43 — Higiene:** núcleo único `predictor.ved_from_elo` (idêntico em grade), `tests/conftest.py`, `requirements` com teto de major.
 
 **Lição (importante):** com os dados atuais, **ajustes paramétricos no núcleo não vencem o portão** (DC/recal rejeitados) — o motor está no teto. Ganho real agora vem de **dados novos** (desfalques/odds/xG via D-41 e schema-alvo) ou de **σ informativo** (D-42, validar). Módulos novos: `tests/` agora cobre registrar/desfalques/dixon_coles/calibrate_1x2/sigma_glicko. **Rode `pytest` na sua máquina após o pull.**
+
+## ▶ Atualização 2026-06-19 (c) — web /bracket + experimentos gateados
+- **Web `/bracket`** (D-46): `web.py` (`/bracket` + `/api/bracket`) + `templates/bracket.html` — chaveamento **dos 16 avos à final** (dois lados convergindo, % por confronto) **lado a lado** com a tabela do Monte Carlo. `python -m scm.web` → `/bracket`. Bracket data: `simulate.most_likely_bracket` (D-45).
+- **odds visíveis** (D-44): `predict_match --odds CASA EMPATE FORA` mostra mercado + 1X2 misturado (20%).
+- **σ_dr encolher** (D-47): testado no portão de banda → **não adotado** (cobertura não-estacionária: sobre-cobre antigo, sub-cobre recente). Mantém σ_dr.
+- **Mando (P-E)** (D-47): H empírico ≈110–120 Elo; motor usa 100 (ok). +40 do anfitrião 2026 = juízo declarado.
+- **Padrão confirmado:** Dixon-Coles, recalibração, σ-Glicko e σ_dr-scaling **todos barrados pelo portão**. O núcleo Elo→Poisson está no **teto** com os dados atuais — ganho real vem de **dados** (desfalques/odds/xG) e de **uso** (registro prospectivo a cada rodada). Registro prospectivo é operacional: registre antes do jogo, preencha depois.

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chaveamento — Copa 2026</title>
+<style>
+  :root{ --bg:#1b1033; --panel:#241544; --line:#3a2a5e; --txt:#ece8f5; --mut:#9b8fc0;
+         --win:#1f7a4d; --winbg:#143a28; --gold:#e6b94e; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif}
+  header{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;align-items:center;gap:12px}
+  h1{font-size:18px;margin:0;font-weight:600}
+  .sub{color:var(--mut);font-size:12px}
+  .champ{margin-left:auto;display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);
+         border-radius:10px;padding:6px 12px;font-weight:600}
+  .champ .star{color:var(--gold);font-size:18px}
+  .ctl{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--mut)}
+  .ctl input{width:64px;background:var(--panel);border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:3px 6px}
+  .ctl button{background:var(--gold);border:0;color:#2a1b00;font-weight:600;border-radius:6px;padding:4px 10px;cursor:pointer}
+  main{display:flex;gap:16px;align-items:flex-start;padding:14px;flex-wrap:wrap}
+  .bracket{flex:1 1 720px;overflow-x:auto;display:flex;gap:8px;min-height:760px}
+  .col{display:flex;flex-direction:column;justify-content:space-around;min-width:96px;gap:6px}
+  .col h3{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);text-align:center;margin:0 0 4px;font-weight:600}
+  .m{background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden;font-size:12px}
+  .m.final{border:2px solid var(--gold)}
+  .row{display:flex;justify-content:space-between;gap:6px;padding:4px 7px;white-space:nowrap}
+  .row.w{background:var(--winbg);color:#dff5e8;font-weight:600}
+  .row .p{color:var(--mut);font-variant-numeric:tabular-nums}
+  .row.w .p{color:#7fe0a8}
+  .tbl{flex:0 0 300px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px}
+  .tbl h3{margin:0 0 8px;font-size:13px}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th,td{text-align:right;padding:3px 5px;border-bottom:1px solid var(--line)}
+  th:first-child,td:first-child{text-align:left}
+  th{color:var(--mut);font-weight:600}
+  td.t{font-weight:600}
+  .note{padding:0 16px 18px;color:var(--mut);font-size:12px;max-width:900px;line-height:1.6}
+  .err{padding:18px;color:#f3a3a3}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Copa 2026 — chaveamento mais provável</h1>
+    <div class="sub">dos 16 avos à final · a % é a chance de avançar daquele confronto · modelo <span id="model">…</span></div>
+  </div>
+  <div class="ctl">sims <input id="sims" type="number" value="5000" min="200" max="50000" step="1000">
+    <button onclick="load()">recarregar</button></div>
+  <div class="champ"><span class="star">&#9733;</span><span>Campeão: <span id="champ">…</span></span></div>
+</header>
+
+<main>
+  <div class="bracket" id="bracket"></div>
+  <div class="tbl">
+    <h3>Probabilidades (Monte Carlo)</h3>
+    <table><thead><tr><th>seleção</th><th>título</th><th>final</th><th>semi</th><th>passa</th></tr></thead>
+    <tbody id="mc"></tbody></table>
+  </div>
+</main>
+
+<div class="note" id="note"></div>
+
+<script>
+// Árvore oficial FIFA 2026 (mesma de simulate.py): colunas dos 16 avos -> final.
+const COLS = [
+  {t:"16 avos", m:[74,77,73,75,83,84,81,82]},
+  {t:"Oitavas", m:[89,90,93,94]},
+  {t:"Quartas", m:[97,98]},
+  {t:"Semi",    m:[101]},
+  {t:"Final",   m:[104]},
+  {t:"Semi",    m:[102]},
+  {t:"Quartas", m:[99,100]},
+  {t:"Oitavas", m:[91,92,95,96]},
+  {t:"16 avos", m:[76,78,79,80,86,88,85,87]},
+];
+function row(team, win, p){
+  return `<div class="row ${win?'w':''}"><span>${team||'—'}</span><span class="p">${win?Math.round(p*100)+'%':''}</span></div>`;
+}
+function card(mid, data){
+  const x = data.match[String(mid)];
+  if(!x) return `<div class="m"><div class="row">—</div><div class="row">—</div></div>`;
+  const fin = mid===104 ? ' final' : '';
+  return `<div class="m${fin}">${row(x.a, x.winner===x.a, x.p_adv)}${row(x.b, x.winner===x.b, x.p_adv)}</div>`;
+}
+async function load(){
+  const sims = document.getElementById('sims').value || 5000;
+  const bk = document.getElementById('bracket');
+  bk.innerHTML = '<div class="sub" style="padding:20px">calculando…</div>';
+  let d;
+  try{ d = await (await fetch('/api/bracket?sims='+sims)).json(); }
+  catch(e){ bk.innerHTML = '<div class="err">falha ao carregar a API.</div>'; return; }
+  if(d.erro){ bk.innerHTML = '<div class="err">'+d.erro+'</div>'; return; }
+  document.getElementById('model').textContent = d.model;
+  document.getElementById('champ').textContent = d.champion;
+  bk.innerHTML = COLS.map(c => '<div class="col"><h3>'+c.t+'</h3>'+c.m.map(mid=>card(mid,d)).join('')+'</div>').join('');
+  document.getElementById('mc').innerHTML = d.table.slice(0,16).map(r =>
+    `<tr><td class="t">${r.team}</td><td>${(r.p_champion*100).toFixed(1)}%</td><td>${(r.p_final*100).toFixed(0)}%</td><td>${(r.p_semi*100).toFixed(0)}%</td><td>${(r.p_advance*100).toFixed(0)}%</td></tr>`).join('');
+  const vice = d.finalists.find(t=>t!==d.champion);
+  document.getElementById('note').innerHTML =
+    `É <b>um</b> chaveamento (a "história"): a chance do bracket exato é ínfima. Os números rigorosos por seleção estão na tabela ao lado (Monte Carlo, ${d.n_sims} torneios). `+
+    `Vice previsto: ${vice} · 3º: ${d.third}. Insight, não previsão validada — probabilidade, nunca certeza.`;
+}
+load();
+</script>
+</body>
+</html>

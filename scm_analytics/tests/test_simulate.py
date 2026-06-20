@@ -96,3 +96,15 @@ def test_altitude_boosts_host_in_groups():
     ph = next(r["p_advance"] for r in boosted["table"] if r["team"] == "Mexico")
     assert ph > pb                                          # altitude favorece o anfitrião adaptado
     assert sum(r["p_champion"] for r in boosted["table"]) == pytest.approx(1.0, abs=1e-9)
+
+
+def test_most_likely_bracket_structure():
+    """Chaveamento determinístico: 31 partidas (16+8+4+2+1), campeão é finalista."""
+    c, groups, names = _db48()
+    path = _write_cfg(groups)
+    bk = sim.most_likely_bracket(c, path)
+    os.remove(path); c.close()
+    assert len(bk["match"]) == 31
+    assert bk["champion"] in names
+    assert bk["champion"] in bk["finalists"]
+    assert all(0.5 <= m["p_adv"] <= 1.0 for m in bk["match"].values())   # vencedor tem ≥50%

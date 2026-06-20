@@ -80,4 +80,11 @@ data: 2026-06-15
 - [x] **P-B — σ Glicko: portão de banda RODADO → NÃO adotado** (D-42): RD varia 51–64 (resolve a degenerescência), mas a banda já sobre-cobre (~92% vs 68%) e o Glicko a alarga (0,134→0,184). Candidato OFF com `run_pit`+`gate_band` prontos. *Achado: o certo é ENCOLHER σ_dr (banda larga demais) — novo card.*
 - [x] **P-H (parcial) — esqueleto de odds/mercado** (D-44): `odds_hist` + `scm/odds.py` (de-vig) + `predict_match(odds=...)` mistura mercado no peso 0,20. Falta a captura periódica (manual) e backtest com série de mercado.
 - [ ] **[P1] Encolher/ calibrar σ_dr** (novo, do portão de banda): a banda sobre-cobre (~92% vs 68%) → escalar σ_dr para baixo e re-gatear a cobertura.
+- [x] **Chaveamento mais provável** (D-45): `simulate.most_likely_bracket` + `--bracket`. Bracket determinístico com % por confronto (complementa o Monte Carlo). 2026: México no caminho único; Monte Carlo dá Argentina/Espanha/França.
+- [x] **Odds visíveis no CLI** (D-44): `predict_match --odds CASA EMPATE FORA` mostra mercado + 1X2 misturado.
 - [ ] **[P1] P-E** mando do anfitrião no portão · **[P2]** captura periódica de odds + comparador de mercado na UI · **[P2]** xG (StatsBomb) como prior.
+- [x] **Página web `/bracket` ENTREGUE** (D-46): `web.py` (`/bracket` + `/api/bracket`) + `templates/bracket.html` — chaveamento dos **16 avos** à final + tabela de % do Monte Carlo lado a lado. Recarregável, local.
+- [x] **σ_dr encolher: TESTADO → não adotado** (D-47): cobertura de banda é não-estacionária (sobre-cobre antigo, sub-cobre recente); nenhuma escala única resolve. Mantém σ_dr.
+- [x] **Mando (P-E) estimado** (D-47): H empírico ≈110–120 Elo; motor usa 100 (ok). +40 do anfitrião 2026 segue juízo declarado.
+- [ ] **[P2]** Calibração de σ_dr **por época/estrato** (não-estacionária) — só se houver ganho de cobertura com IC.
+- [ ] **[P2]** Comparador de mercado na UI (input de odds no index.html; `predict_match --odds` já mostra no CLI) · captura periódica de odds.

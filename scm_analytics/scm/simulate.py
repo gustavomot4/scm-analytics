@@ -241,6 +241,84 @@ def run(conn, config_path=DEFAULT_CONFIG, n_sims=20000, seed=12345):
             "n_played_locked": len(played)}
 
 
+def most_likely_bracket(conn, config_path=DEFAULT_CONFIG) -> dict:
+    """Chaveamento MAIS PROVÁVEL (determinístico) — a 'história' por trás dos números.
+
+    Grupo: avança quem tem mais PONTOS ESPERADOS (3·P(V)+P(E) somado, saldo esperado no
+    desempate), travando jogos já disputados. Mata-mata: avança quem tem maior P(avançar)
+    (`knockout_advance`, §3.2); cada confronto traz a % do vencedor. Reusa altitude nos jogos
+    de grupo (D-37). É UM bracket, NÃO a previsão estatística — a chance do bracket EXATO é
+    ínfima; os números rigorosos por seleção saem de `run()`. Use os dois juntos.
+    """
+    from .predictor import poisson_reads, knockout_advance
+    cfg, groups = load_config(config_path)
+    elos = get_elos(conn); played = played_results(conn); p = PredictParams()
+    teams = [t for g in groups.values() for t in g]
+    tab = build_lambda_table(teams, elos, p, hosts=cfg.get("hosts"))
+    alt = cfg.get("altitude_venues")
+
+    def _ll(a, b):
+        if alt and (a in alt or b in alt):
+            return lambdas(tab[(a, b)][0], p, gd_alt=gd_alt(alt.get(a) or alt.get(b), a, b))
+        return tab[(a, b)][1], tab[(a, b)][2]
+
+    def _1x2(a, b):
+        la, lb = _ll(a, b); r = poisson_reads(la, lb)
+        return r["pv"], r["pe"], r["pd"]
+
+    group_rank = {}
+    for g, ts in groups.items():
+        pts = {t: 0.0 for t in ts}; gdif = {t: 0.0 for t in ts}
+        for a, b in combinations(ts, 2):
+            if (a, b) in played:
+                xa, xb = played[(a, b)]
+            elif (b, a) in played:
+                xb, xa = played[(b, a)]
+            else:
+                xa = xb = None
+            if xa is not None:
+                pv, pe, pd = (1.0, 0.0, 0.0) if xa > xb else ((0.0, 1.0, 0.0) if xa == xb else (0.0, 0.0, 1.0))
+                gdif[a] += xa - xb; gdif[b] += xb - xa
+            else:
+                pv, pe, pd = _1x2(a, b); la, lb = _ll(a, b); gdif[a] += la - lb; gdif[b] += lb - la
+            pts[a] += 3 * pv + pe; pts[b] += 3 * pd + pe
+        rank = sorted(ts, key=lambda t: (pts[t], gdif[t]), reverse=True)
+        group_rank[g] = [(t, round(pts[t], 2)) for t in rank]
+
+    firsts = {g: r[0][0] for g, r in group_rank.items()}
+    seconds = {g: r[1][0] for g, r in group_rank.items()}
+    thirds = sorted(((g, r[2][0], r[2][1]) for g, r in group_rank.items()), key=lambda x: -x[2])[:BEST_THIRDS]
+    third_team = {g: t for g, t, _ in thirds}
+    slot_group = _assign_thirds(set(third_team))
+
+    def team_of(code):
+        if code in THIRD_SLOTS:
+            return third_team[slot_group[code]]
+        return (firsts if code[0] == "1" else seconds)[code[1]]
+
+    win, info = {}, {}
+
+    def play(mid, a, b):
+        pv, pe, pd = _1x2(a, b)
+        ko = knockout_advance(pv, pe, pd, tab[(a, b)][0], p)
+        w = a if ko["adv_a"] >= ko["adv_b"] else b
+        win[mid] = w
+        info[mid] = {"a": a, "b": b, "winner": w, "p_adv": max(ko["adv_a"], ko["adv_b"])}
+
+    for mid, a, b in R32:
+        play(mid, team_of(a), team_of(b))
+    for mid, a, b in LATER:
+        play(mid, win[a], win[b])
+    sf_loser = [info[101]["a"] if win[101] == info[101]["b"] else info[101]["b"],
+                info[102]["a"] if win[102] == info[102]["b"] else info[102]["b"]]
+    pv, pe, pd = _1x2(*sf_loser)
+    ko3 = knockout_advance(pv, pe, pd, elos.get(sf_loser[0], 1500) - elos.get(sf_loser[1], 1500), p)
+    third = sf_loser[0] if ko3["adv_a"] >= ko3["adv_b"] else sf_loser[1]
+    return {"model": MODEL_VERSION, "group_rank": group_rank, "match": info, "win": win,
+            "champion": win[104], "finalists": (info[104]["a"], info[104]["b"]),
+            "final_p": info[104]["p_adv"], "third": third}
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Monte Carlo da Copa 2026 (P de título por seleção).")
     ap.add_argument("--db", default=str(DEFAULT_DB))
@@ -248,12 +326,31 @@ def main(argv=None) -> int:
     ap.add_argument("--sims", type=int, default=20000)
     ap.add_argument("--seed", type=int, default=12345)
     ap.add_argument("--top", type=int, default=24)
+    ap.add_argument("--bracket", action="store_true", help="imprime o chaveamento MAIS PROVÁVEL (determinístico)")
     args = ap.parse_args(argv)
     if not Path(args.db).exists():
         print(f"[erro] {args.db} não existe. Rode ingest + elo_engine antes."); return 1
     if not Path(args.config).exists():
         print(f"[erro] sorteio não encontrado: {args.config}\n"
               f"       preencha o modelo dados/copa2026.json com os 12 grupos × 4."); return 1
+    if args.bracket:
+        conn = db.connect(args.db)
+        bk = most_likely_bracket(conn, args.config)
+        conn.close()
+        names = {"R32": [73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88],
+                 "OITAVAS": [89, 90, 91, 92, 93, 94, 95, 96], "QUARTAS": [97, 98, 99, 100],
+                 "SEMIS": [101, 102], "FINAL": [104]}
+        print(f"\n  CHAVEAMENTO MAIS PROVÁVEL — Copa 2026  ·  modelo {bk['model']}")
+        for rnd, mids in names.items():
+            print(f"\n  {rnd}")
+            for mid in mids:
+                m = bk["match"][mid]
+                print(f"    {m['a']:<20} x {m['b']:<20} → {m['winner']:<20} ({m['p_adv']*100:.0f}%)")
+        print(f"\n  🏆 CAMPEÃO: {bk['champion']}  (final {bk['final_p']*100:.0f}%)  "
+              f"·  vice: {[t for t in bk['finalists'] if t!=bk['champion']][0]}  ·  3º: {bk['third']}")
+        print("\n  — UM chaveamento (a 'história'); a chance do bracket EXATO é ínfima.")
+        print("    Os números rigorosos por seleção: rode sem --bracket (Monte Carlo).\n")
+        return 0
     conn = db.connect(args.db)
     cfg, groups = load_config(args.config)
     elos = get_elos(conn)

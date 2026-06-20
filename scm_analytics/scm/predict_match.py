@@ -190,11 +190,14 @@ def main(argv=None) -> int:
                         "fora do modelo padrão, só para inspeção")
     p.add_argument("--mata-mata", dest="mata_mata", action="store_true",
                    help="jogo eliminatório: mostra a probabilidade de AVANÇAR (empate→prorrog./pênaltis)")
+    p.add_argument("--odds", nargs=3, type=float, default=None, metavar=("CASA", "EMPATE", "FORA"),
+                   help="odds decimais de mercado (ex.: 2.10 3.30 3.60): mistura no 1X2 (peso 0.20, §3.8)")
     args = p.parse_args(argv)
     if not Path(args.db).exists():
         print(f"[erro] {args.db} não existe. Rode ingest + elo_engine antes."); return 1
     conn = db.connect(args.db)
-    r = predict_match(conn, args.home, args.away, args.mando, args.city, usar_estilo=args.estilo)
+    r = predict_match(conn, args.home, args.away, args.mando, args.city, usar_estilo=args.estilo,
+                      odds=tuple(args.odds) if args.odds else None)
     conn.close()
     if r.get("erro"):
         sg = ", ".join(r["sugestoes"]) or "—"
@@ -213,6 +216,10 @@ def main(argv=None) -> int:
           + ("  ⚠ rating provisório" if r["provisional"] else ""))
     print(f"  1X2:  {A} {r['p_v']*100:.1f}%  ·  Empate {r['p_e']*100:.1f}%  ·  {B} {r['p_d']*100:.1f}%"
           f"      (banda {A} {r['band_pv_lo']*100:.0f}–{r['band_pv_hi']*100:.0f}%)")
+    if r.get("mercado"):
+        m = r["mercado"]
+        print(f"  mercado (de-vig): {A} {m['p_v']*100:.1f}%  ·  Empate {m['p_e']*100:.1f}%  ·  {B} {m['p_d']*100:.1f}%"
+              f"   → já misturado 20% no 1X2 acima")
     print(f"  λ: {A} {r['lambda_a']:.2f} · {B} {r['lambda_b']:.2f}"
           + (f"   |  estilo {A} {r['estilo_a']:.2f} · {B} {r['estilo_b']:.2f}" if (r.get('estilo_a',1.0)!=1.0 or r.get('estilo_b',1.0)!=1.0) else ""))
     print(f"  over/under:  0.5 {mk['over']['0.5']*100:.0f}%  ·  1.5 {mk['over']['1.5']*100:.0f}%  ·  "

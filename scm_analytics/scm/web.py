@@ -66,6 +66,33 @@ def create_app(db_path=None):
     def simulacao():
         return render_template("simulacao.html")
 
+    @app.get("/bracket")
+    def bracket_page():
+        return render_template("bracket.html")
+
+    @app.get("/api/bracket")
+    def api_bracket():
+        """Chaveamento mais provável (dos 16 avos à final) + tabela do Monte Carlo."""
+        from .simulate import most_likely_bracket, run
+        cfg_path = app.config["CONFIG"]
+        if not Path(cfg_path).exists():
+            return jsonify({"erro": "sorteio não encontrado — preencha dados/copa2026.json"})
+        try:
+            sims = int(request.args.get("sims", 5000) or 5000)
+        except ValueError:
+            sims = 5000
+        sims = max(200, min(sims, 50000))
+        conn = db.connect(app.config["DB"])
+        bk = most_likely_bracket(conn, cfg_path)
+        mc = run(conn, cfg_path, n_sims=sims)
+        conn.close()
+        return jsonify({
+            "model": bk["model"], "n_sims": mc["n_sims"],
+            "match": {str(k): v for k, v in bk["match"].items()},   # mid -> {a,b,winner,p_adv}
+            "champion": bk["champion"], "finalists": list(bk["finalists"]),
+            "third": bk["third"], "table": mc["table"],
+        })
+
     @app.get("/api/simulate")
     def api_simulate():
         from .simulate import run, load_config, validate, get_elos
