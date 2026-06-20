@@ -1,17 +1,21 @@
 """desfalques — Camada 3 (P-F / D-41): ajuste DIRECIONAL por ausências (lesões/suspensões).
 
 Contrato "Desfalques direcionais":
-  - ATAQUE fora  → corta o gol esperado do PRÓPRIO time (entra como Δ no GD, via gd_alt);
+  - ATAQUE fora  → corta o λ do PRÓPRIO time via δ_ata MULTIPLICATIVO (λ_T·(1−δ_ata_T),
+    contrato §8 passo 6), SEM inflar o rival;
   - DEFESA/GOLEIRO fora → enfraquece o rating efetivo do time (entra como Δ no dr).
 
 Tiers [a calibrar] (somados por time/setor):
   defesa/goleiro (Elo):  chave 35 · importante 15 · rodízio 5
-  ataque (gols):         chave 0.25 · importante 0.12 · rodízio 0.04
+  ataque (δ_ata, fração de corte do λ):  chave 0.25 · importante 0.12 · rodízio 0.04
   meio-campo            → metade do peso de defesa no dr (influência difusa)
 
+D-53 (audit N-A): o ataque agora usa o canal δ_ata do `predictor.lambdas` (datk_a/datk_b),
+não mais o canal de GD. O canal de GD é soma-zero em λ e portanto SUBIA o λ do adversário
+quando um atacante do mandante saía — o oposto do que o contrato manda. Verificado.
+
 NÃO inventa dados: as ausências vêm de um JSON que o usuário preenche por jogo
-(`dados/desfalques.json`). Reusa o `dr` e o `gd_alt` do `predict_match` — o núcleo
-(predictor) não muda. As magnitudes são placeholders e ficam candidatas ao portão
+(`dados/desfalques.json`). As magnitudes são placeholders e ficam candidatas ao portão
 quando existir uma base de escalações (não há fonte gratuita estruturada hoje —
 ver [[Fontes gratuitas]] "lacunas declaradas").
 
@@ -54,12 +58,21 @@ def team_penalty(outs) -> tuple:
 
 
 def match_deltas(home_outs, away_outs) -> tuple:
-    """(dr_delta, gd_delta) a somar ao dr e ao gd_alt do confronto (A=home, B=away)."""
+    """(dr_delta, datk_home, datk_away): efeito direcional dos desfalques (A=home, B=away).
+
+    - DEFESA/GOLEIRO fora -> canal `dr` (rating efetivo): mandante fora baixa o dr; visitante
+      fora sobe o dr.
+    - ATAQUE fora -> canal `δ_ata` MULTIPLICATIVO (contrato §8 passo 6): corta o λ do PRÓPRIO
+      time via λ_T·(1−δ_ata_T), SEM inflar o rival. `datk_home`/`datk_away` ∈ [0, 0.6] são as
+      frações de corte. Corrige o audit N-A: antes o ataque ia pelo canal de GD (soma-zero em
+      λ) e SUBIA o λ do adversário — exatamente o que o contrato proíbe ("NÃO infla o rival").
+    """
     def_h, atk_h = team_penalty(home_outs)
     def_a, atk_a = team_penalty(away_outs)
-    dr_delta = -def_h + def_a       # defesa do mandante fora -> dr cai; do visitante fora -> dr sobe
-    gd_delta = -atk_h + atk_a       # ataque do mandante fora -> GD cai; do visitante fora -> GD sobe
-    return dr_delta, gd_delta
+    dr_delta = -def_h + def_a
+    datk_home = min(0.6, atk_h)     # corte do λ do mandante (cap de segurança)
+    datk_away = min(0.6, atk_a)     # corte do λ do visitante
+    return dr_delta, datk_home, datk_away
 
 
 def load_for_match(path, home, away, date) -> dict:
@@ -81,8 +94,9 @@ def main(argv=None) -> int:
     d = load_for_match(args.json, args.home, args.away, args.date)
     if not d:
         print("sem desfalques cadastrados p/ este confronto."); return 1
-    ddr, dgd = match_deltas(d.get("home", []), d.get("away", []))
-    print(f"desfalques {args.home} x {args.away} ({args.date}):  Δdr={ddr:+.0f} Elo   ΔGD={dgd:+.2f} gols")
+    ddr, dah, daa = match_deltas(d.get("home", []), d.get("away", []))
+    print(f"desfalques {args.home} x {args.away} ({args.date}):  Δdr={ddr:+.0f} Elo   "
+          f"corte ataque: {args.home} −{dah*100:.0f}% · {args.away} −{daa*100:.0f}%")
     print("  (use em predict_match(..., desfalques=<dict home/away>))")
     return 0
 

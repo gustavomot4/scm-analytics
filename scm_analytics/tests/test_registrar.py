@@ -67,6 +67,25 @@ def test_register_unknown_team_returns_error():
         c.close()
 
 
+def test_dashboard_data(c=None):
+    """dashboard_data (D-66): resumo + lista de jogos (vazio e populado)."""
+    c = _conn(); path = tempfile.mktemp(suffix=".csv")
+    try:
+        empty = R.dashboard_data(c, path=path)         # nada registrado ainda
+        assert empty["games"] == [] and empty["summary"].get("n", 0) == 0
+        R.register(c, "Brazil", "Bolivia", "2026-06-20", path=path)
+        R.settle("Brazil", "Bolivia", "2026-06-20", 2, 0, path=path)
+        d = R.dashboard_data(c, path=path)
+        assert len(d["games"]) == 1 and d["model"] == MODEL_VERSION
+        g = d["games"][0]
+        assert g["resultado"] == "V" and g["mercado"] is None   # sem odds gravadas
+        assert 0.0 <= g["p_v"] <= 1.0 and d["summary"]["n"] == 1
+    finally:
+        if os.path.exists(path):
+            os.remove(path)
+        c.close()
+
+
 def test_register_batch_and_settle_from_db():
     c = _conn(); path = tempfile.mktemp(suffix=".csv")
     try:

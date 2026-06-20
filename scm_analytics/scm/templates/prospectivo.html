@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SCM Analytics — Painel prospectivo</title>
+<style>
+  :root{--bg:#fff;--panel:#f7f8fa;--text:#1c1f23;--muted:#6b7280;--border:#e5e7eb;--border-strong:#d2d6db;
+    --accent:#2563eb;--accent-weak:#eef3ff;--accent-strong:#1d57d6;--win:#2563eb;--draw:#9aa1ab;--loss:#56627a;--radius:8px}
+  *{box-sizing:border-box} html,body{margin:0}
+  body{background:var(--bg);color:var(--text);font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .tnum{font-variant-numeric:tabular-nums}
+  .app{display:flex;min-height:100vh}
+  .sidebar{width:210px;flex:none;background:var(--panel);border-right:1px solid var(--border);padding:16px 12px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+  .sb-brand{font-weight:600;font-size:15px;padding:4px 8px 16px;letter-spacing:-.01em}
+  .sb-brand span{display:block;color:var(--muted);font-weight:400;font-size:12px;margin-top:2px}
+  .sb-nav{display:flex;flex-direction:column;gap:2px}
+  .sb-nav a{display:block;padding:9px 11px;border-radius:6px;color:var(--text);text-decoration:none;font-size:14px}
+  .sb-nav a:hover{background:#eceff3}
+  .sb-nav a.active{background:var(--accent-weak);color:var(--accent);font-weight:500}
+  .sb-foot{margin-top:auto;color:var(--muted);font-size:11px;padding-top:12px;border-top:1px solid var(--border)}
+  .sb-update{width:100%;height:32px;margin-bottom:6px;border:1px solid var(--border-strong);border-radius:6px;background:#fff;color:var(--text);font:inherit;font-size:13px;cursor:pointer}
+  .sb-update:hover{background:#eceff3} .sb-update:disabled{opacity:.6;cursor:default}
+  .sb-updmsg{font-size:11px;color:var(--muted);margin-bottom:8px;min-height:13px}
+  .content{flex:1;min-width:0}
+  main{max-width:980px;margin:0 auto;padding:28px 24px 48px}
+  h1{font-size:18px;font-weight:600;margin:0 0 4px;letter-spacing:-.01em}
+  .sub{color:var(--muted);margin:0 0 20px;font-size:13px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:20px}
+  .card{background:#fff;padding:12px 14px}
+  .card .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+  .card .v{font-size:20px;font-weight:600;margin-top:3px} .card .v small{font-size:12px;color:var(--muted);font-weight:400}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:8px 8px;border-bottom:1px solid var(--border);white-space:nowrap}
+  th{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;font-weight:500}
+  tr:last-child td{border-bottom:none} td.r,th.r{text-align:right}
+  .pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:600}
+  .open{background:var(--panel);color:var(--muted);border:1px solid var(--border)}
+  .res{background:var(--accent-weak);color:var(--accent-strong)}
+  .b-lo{color:#15803d} .b-hi{color:#b91c1c} .mut{color:var(--muted)}
+  .foot{color:var(--muted);font-size:12px;margin-top:16px}
+  .empty{border:1px dashed var(--border-strong);border-radius:var(--radius);padding:28px;text-align:center;color:var(--muted)}
+  code{background:var(--panel);border:1px solid var(--border);padding:1px 6px;border-radius:5px}
+  .tb{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+  .btn{height:34px;padding:0 14px;border:1px solid var(--border-strong);border-radius:6px;background:#fff;color:var(--text);font:inherit;font-size:13px;cursor:pointer}
+  .btn:hover{background:#eceff3} .btn:disabled{opacity:.55;cursor:default}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff} .btn.primary:hover{background:var(--accent-strong)}
+  .tb-msg{font-size:12px;color:var(--muted)} .tb-msg.ok{color:#15803d} .tb-msg.err{color:#b91c1c}
+  .flow{font-size:12px;color:var(--muted);margin:0 0 14px} .flow b{color:var(--text)}
+  details.reg{margin-bottom:18px} details.reg>summary{font-size:13px;color:var(--accent);cursor:pointer;padding:4px 0}
+  .regform{display:flex;gap:8px;align-items:end;flex-wrap:wrap;padding:12px;border:1px solid var(--border);border-radius:var(--radius);background:var(--panel);margin-top:8px}
+  .regform .f{display:flex;flex-direction:column;gap:4px} .regform label{font-size:11px;color:var(--muted)}
+  .regform input{height:32px;padding:0 9px;border:1px solid var(--border-strong);border-radius:6px;font:inherit;background:#fff}
+  .regform input.sm{width:120px}
+  @media(max-width:720px){.app{flex-direction:column}.sidebar{width:auto;height:auto;position:static;flex-direction:row;align-items:center;gap:8px;overflow-x:auto;padding:8px 12px}.sb-brand{padding:0 8px 0 4px;white-space:nowrap}.sb-brand span{display:none}.sb-nav{flex-direction:row}.sb-foot{display:none}}
+</style>
+</head>
+<body>
+<div class="app">
+<aside class="sidebar">
+  <div class="sb-brand">SCM Analytics<span>Copa 2026</span></div>
+  <nav class="sb-nav">
+    <a href="/">Prever confronto</a>
+    <a href="/simulacao">Simular Copa</a>
+    <a href="/bracket">Chaveamento</a>
+    <a href="/prospectivo" class="active">Prospectivo</a>
+  </nav>
+  <div class="sb-foot">
+    {% include '_update_widget.html' %}
+    <div id="model"></div><div>Probabilidade, não certeza.</div>
+  </div>
+</aside>
+<div class="content">
+<main>
+  <h1>Painel prospectivo</h1>
+  <p class="sub">Brier <b>real</b> da Copa, medido jogo a jogo (registro imutável pré-jogo). Modelo: <span id="model2" class="mut">…</span>. Probabilidade, não certeza — não é recomendação de aposta.</p>
+  <datalist id="teams"></datalist>
+  <div class="tb">
+    <button class="btn primary" id="btnReg">Registrar rodada</button>
+    <button class="btn" id="btnSettle">Buscar resultados</button>
+    <span class="tb-msg" id="tbMsg"></span>
+  </div>
+  <p class="flow"><b>1.</b> Atualizar dados (sidebar) &middot; <b>2.</b> Registrar rodada <b>antes</b> dos jogos &middot; <b>3.</b> Buscar resultados <b>depois</b>. A rodada vem de <code>dados/fixtures.json</code> — ou registre um jogo avulso aqui:</p>
+  <details class="reg">
+    <summary>Registrar um jogo avulso (sem editar arquivo)</summary>
+    <div class="regform">
+      <div class="f"><label for="rH">Time A (mandante)</label><input id="rH" list="teams" placeholder="ex.: Brazil"></div>
+      <div class="f"><label for="rA">Time B</label><input id="rA" list="teams" placeholder="ex.: Argentina"></div>
+      <div class="f"><label for="rD">Data</label><input id="rD" class="sm" placeholder="2026-06-26"></div>
+      <div class="f"><label for="rC">Cidade (opc.)</label><input id="rC" class="sm" placeholder="—"></div>
+      <div class="f"><label for="rM">Mando (opc.)</label><input id="rM" class="sm" placeholder="0"></div>
+      <button class="btn primary" id="btnRegOne">Registrar jogo</button>
+    </div>
+  </details>
+  <div id="cards" class="cards"></div>
+  <div id="content"></div>
+  <div class="foot">As linhas com resultado entram no Brier prospectivo; as demais ficam <span class="pill open">em aberto</span> até o jogo. "Registrar rodada" usa <code>dados/fixtures.json</code>; "Buscar resultados" preenche pelo snapshot atual (clique em <b>Atualizar dados</b> antes, para baixar os placares novos).</div>
+</main>
+</div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const pct=x=>(x*100).toFixed(0)+'%';
+const ved=(v,e,d)=>`<span class="tnum">${pct(v)} · ${pct(e)} · ${pct(d)}</span>`;
+const msg=(t,cls)=>{const m=$('tbMsg');m.innerHTML=t;m.className='tb-msg'+(cls?' '+cls:'');};
+
+fetch('/api/teams').then(r=>r.json()).then(d=>{
+  $('model').textContent='modelo '+(d.model||''); $('model2').textContent=d.model||'';
+  if(d.teams) $('teams').innerHTML=d.teams.map(t=>`<option value="${t}"></option>`).join('');
+}).catch(()=>{});
+
+function loadData(){
+  fetch('/api/prospectivo').then(r=>r.json()).then(d=>{
+    const s=d.summary||{}, cards=[];
+    if(s.n){
+      cards.push(['Brier prospectivo', s.brier.toFixed(4)+' <small>/ unif. '+s.brier_uniforme.toFixed(3)+'</small>']);
+      cards.push(['Ganho vs uniforme', `<span class="${s.ganho_vs_uniforme>=0?'b-lo':'b-hi'}">${s.ganho_vs_uniforme>=0?'+':''}${s.ganho_vs_uniforme.toFixed(4)}</span>`]);
+      cards.push(['Jogos medidos', s.n]); cards.push(['Em aberto', s.n_abertas||0]);
+    } else { cards.push(['Jogos medidos','0']); cards.push(['Em aberto',(d.games||[]).length]); }
+    $('cards').innerHTML=cards.map(c=>`<div class="card"><div class="k">${c[0]}</div><div class="v">${c[1]}</div></div>`).join('');
+    const g=d.games||[];
+    if(!g.length){ $('content').innerHTML='<div class="empty">Nenhuma previsão registrada ainda.<br>Clique em <b>Registrar rodada</b> (usa dados/fixtures.json) ou registre um jogo avulso acima.</div>'; return; }
+    let h='<table><thead><tr><th>Data</th><th>Confronto</th><th>Modelo (V·E·D)</th><th>Mercado (V·E·D)</th><th>Resultado</th><th class="r">Brier</th></tr></thead><tbody>';
+    for(const x of g){
+      const mkt=x.mercado?ved(x.mercado.p_v,x.mercado.p_e,x.mercado.p_d):'<span class="mut">—</span>';
+      let res='<span class="pill open">em aberto</span>', br='<span class="mut">—</span>';
+      if(x.resultado){ const map={V:x.home,E:'Empate',D:x.away};
+        res=`<span class="pill res">${x.gols_home}–${x.gols_away}</span> <span class="mut">${map[x.resultado]||x.resultado}</span>`;
+        const b=parseFloat(x.brier); br=`<span class="${b<0.5?'b-lo':(b>0.9?'b-hi':'')}">${x.brier}</span>`; }
+      h+=`<tr><td class="mut">${x.data_jogo}</td><td><b>${x.home}</b> × ${x.away}</td><td>${ved(x.p_v,x.p_e,x.p_d)}</td><td>${mkt}</td><td>${res}</td><td class="r">${br}</td></tr>`;
+    }
+    $('content').innerHTML=h+'</tbody></table>';
+  }).catch(e=>{ $('content').innerHTML='<div class="empty">Erro ao carregar (a base existe? clique em Atualizar dados).</div>'; });
+}
+loadData();
+
+const post=async url=>(await fetch(url,{method:'POST'})).json();
+
+$('btnReg').addEventListener('click', async()=>{
+  $('btnReg').disabled=true; msg('Registrando rodada…');
+  try{ const r=await post('/api/registrar/register-batch');
+    if(r.erro){ msg(r.erro,'err'); }
+    else { msg(r.registrados+' registrado(s) · '+r.ja_existiam+' já existia(m)'+(r.erros?' · '+r.erros+' erro(s)':''),'ok'); loadData(); }
+  }catch(e){ msg('Falha ao registrar.','err'); } finally{ $('btnReg').disabled=false; }
+});
+$('btnSettle').addEventListener('click', async()=>{
+  $('btnSettle').disabled=true; msg('Buscando resultados no snapshot…');
+  try{ const r=await post('/api/registrar/settle');
+    msg(r.preenchidos+' resultado(s) preenchido(s) · '+r.abertas_restantes+' ainda em aberto','ok'); loadData();
+  }catch(e){ msg('Falha ao buscar resultados.','err'); } finally{ $('btnSettle').disabled=false; }
+});
+$('btnRegOne').addEventListener('click', async()=>{
+  const h=$('rH').value.trim(), a=$('rA').value.trim(), d=$('rD').value.trim();
+  if(!h||!a||!d){ msg('Informe Time A, Time B e a data (YYYY-MM-DD).','err'); return; }
+  const q=new URLSearchParams({home:h,away:a,date:d});
+  if($('rC').value.trim()) q.set('city',$('rC').value.trim());
+  if($('rM').value.trim()) q.set('mando',$('rM').value.trim());
+  $('btnRegOne').disabled=true; msg('Registrando…');
+  try{ const r=await post('/api/registrar/register?'+q.toString());
+    if(r.erro){ msg(r.erro+((r.sugestoes&&r.sugestoes.length)?' — '+r.sugestoes.join(', '):''),'err'); }
+    else if(r.ja_existia){ msg('Esse jogo já estava registrado (imutável).','ok'); }
+    else { msg('✓ '+r.home+' × '+r.away+' registrado (hash '+r.hash+').','ok'); ['rH','rA','rD','rC','rM'].forEach(i=>$(i).value=''); loadData(); }
+  }catch(e){ msg('Falha ao registrar.','err'); } finally{ $('btnRegOne').disabled=false; }
+});
+</script>
+</body>
+</html>

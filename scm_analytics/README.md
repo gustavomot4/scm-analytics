@@ -28,7 +28,7 @@ scm_analytics/
 │   ├── xg.py             # [D-50] esqueleto xG (StatsBomb): team_xg + fator de estilo (candidato OFF)
 │   ├── web.py            # interface web local (Flask)
 │   └── templates/index.html   # UI (design de produto)
-├── tests/                # pytest (sem rede; fixtures) — 18 arquivos de teste
+├── tests/                # pytest (sem rede; fixtures) — 25 arquivos de teste (128 casos)
 ├── dados/                # snapshots + scm.sqlite (gerados; .gitignore)
 └── requirements.txt
 ```

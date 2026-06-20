@@ -97,6 +97,9 @@
   .sb-nav a:hover{background:#eceff3}
   .sb-nav a.active{background:var(--accent-weak);color:var(--accent);font-weight:500}
   .sb-foot{margin-top:auto;color:var(--muted);font-size:11px;padding-top:12px;border-top:1px solid var(--border)}
+  .sb-update{width:100%;height:32px;margin-bottom:6px;border:1px solid var(--border-strong);border-radius:6px;background:#fff;color:var(--text);font:inherit;font-size:13px;cursor:pointer}
+  .sb-update:hover{background:#eceff3} .sb-update:disabled{opacity:.6;cursor:default}
+  .sb-updmsg{font-size:11px;color:var(--muted);margin-bottom:8px;min-height:13px}
   .content{flex:1;min-width:0}
   @media(max-width:720px){.app{flex-direction:column}.sidebar{width:auto;height:auto;position:static;flex-direction:row;align-items:center;gap:8px;overflow-x:auto;padding:8px 12px}.sb-brand{padding:0 8px 0 4px;white-space:nowrap}.sb-brand span{display:none}.sb-nav{flex-direction:row}.sb-foot{display:none}}
   .oddsrow{display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap;font-size:13px}
@@ -119,8 +122,12 @@
       <a href="/" class="active">Prever confronto</a>
       <a href="/simulacao">Simular Copa</a>
       <a href="/bracket">Chaveamento</a>
+      <a href="/prospectivo">Prospectivo</a>
     </nav>
-    <div class="sb-foot"><div class="model" id="model"></div><div>Probabilidade, não certeza.</div></div>
+    <div class="sb-foot">
+      {% include '_update_widget.html' %}
+      <div class="model" id="model"></div><div>Probabilidade, não certeza.</div>
+    </div>
   </aside>
   <div class="content">
   <main>
@@ -258,19 +265,29 @@
       .map(([k,nm,x]) => `<div class="item"><span class="dot" style="background:${colorFor(k)}"></span><span class="pct tnum">${pct(x)}</span><span class="nm">${nm}</span></div>`).join('');
     $('band').textContent = 'Banda de P(' + d.home + '): ' + pct(d.band_lo) + ' – ' + pct(d.band_hi);
     const mc = $('mktcmp');
-    if(d.mercado){ mc.style.display='';
-      mc.innerHTML = '<b>Mercado</b> (sem vig): ' + d.home + ' ' + pct(d.mercado.p_v) + ' &middot; Empate ' + pct(d.mercado.p_e)
-        + ' &middot; ' + d.away + ' ' + pct(d.mercado.p_d) + ' <span class="hint">— já misturado 20% no 1X2 acima</span>'; }
+    const mv = o => d.home + ' ' + pct(o.p_v) + ' &middot; Empate ' + pct(o.p_e) + ' &middot; ' + d.away + ' ' + pct(o.p_d);
+    if(d.mercado && d.p_model){ mc.style.display='';
+      const dv = (d.p_v - d.p_model.p_v) * 100;
+      mc.innerHTML = '<b>Efeito do mercado (peso 20%, contrato §3.8)</b> no 1X2:'
+        + '<div style="margin-top:4px">Modelo: <span class="tnum">' + mv(d.p_model) + '</span></div>'
+        + '<div>Mercado (sem vig): <span class="tnum">' + mv(d.mercado) + '</span></div>'
+        + '<div style="margin-top:4px">&rarr; <b>Misturado (mostrado acima):</b> <span class="tnum">' + mv({p_v:d.p_v,p_e:d.p_e,p_d:d.p_d}) + '</span>'
+        + ' <span class="hint">(P(' + d.home + ') ' + (dv>=0?'+':'') + dv.toFixed(1) + ' pp)</span></div>'
+        + '<div class="hint" style="margin-top:4px">Só o 1X2 muda com o mercado — λ, mercados derivados e confiança vêm do modelo (não mudam).</div>'; }
+    else if(d.mercado){ mc.style.display='';
+      mc.innerHTML = '<b>Mercado</b> (sem vig): ' + mv(d.mercado) + ' <span class="hint">— misturado 20% no 1X2 acima</span>'; }
     else { mc.style.display='none'; }
     const sgn = x => (x>=0?'+':'');
     const parts = ['<span class="chip">Elo <b>'+sgn(d.elo_diff)+d.elo_diff+'</b></span>'];
     if(d.form_diff) parts.push('<span class="chip">Forma <b>'+sgn(d.form_diff)+d.form_diff+'</b></span>');
     if(d.mando) parts.push('<span class="chip">Mando <b>'+sgn(d.mando)+d.mando+'</b></span>');
     if(d.dr_desf) parts.push('<span class="chip">Desfalque <b>'+sgn(d.dr_desf)+d.dr_desf+'</b></span>');
-    const gd=[]; if(d.gd_alt) gd.push('altitude '+sgn(d.gd_alt)+d.gd_alt); if(d.gd_desf) gd.push('desfalque-ataque '+sgn(d.gd_desf)+d.gd_desf);
+    const gd=[]; if(d.gd_alt) gd.push('altitude '+sgn(d.gd_alt)+d.gd_alt);
+    const atk=[]; if(d.datk_home) atk.push(d.home+' −'+Math.round(d.datk_home*100)+'%'); if(d.datk_away) atk.push(d.away+' −'+Math.round(d.datk_away*100)+'%');
     $('explain').innerHTML = 'Como o modelo chega no <b>dr</b> (' + sgn(d.dr)+d.dr + ' Elo): '
       + '<span class="chips">' + parts.join('') + '<span class="chip eq">= ' + sgn(d.dr)+d.dr + '</span></span>'
-      + (gd.length ? '<div style="margin-top:6px">No saldo de gols (λ): ' + gd.join(', ') + ' gol.</div>' : '');
+      + (gd.length ? '<div style="margin-top:6px">No saldo de gols (λ): ' + gd.join(', ') + ' gol.</div>' : '')
+      + (atk.length ? '<div style="margin-top:6px">Desfalque ofensivo (corta o λ do próprio time, não infla o rival): ' + atk.join(', ') + '.</div>' : '');
     $('stats').innerHTML = [
       ['λ ' + d.home, d.lambda_a.toFixed(2)],
       ['λ ' + d.away, d.lambda_b.toFixed(2)],

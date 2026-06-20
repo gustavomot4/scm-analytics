@@ -19,11 +19,10 @@ from pathlib import Path
 
 from . import db
 from .predictor import PredictParams, predict, markets, MODEL_VERSION
-from .altitude import gd_alt
+from .factors import gd_alt
 from .ingest import DEFAULT_DB
 
-SIGMA_AJUSTE_DEFAULT = 40.0   # incerteza de forma/escalação p/ jogo futuro (entra na banda)
-SIGMA_R_REF = 200.0           # escala de maturidade do rating p/ a confiança [a calibrar]
+from .config import SIGMA_AJUSTE_DEFAULT, SIGMA_R_REF   # fonte única dos coeficientes (arquitetura)
 
 
 def _team(conn, name):
@@ -100,7 +99,7 @@ def conf_label(c):
 
 
 def predict_match(conn, home, away, mando=0.0, city=None, sigma_ajuste=None, usar_estilo=False,
-                  desfalques=None, odds=None):
+                  desfalques=None, odds=None, date=None):
     a = _team(conn, home)
     b = _team(conn, away)
     if not a or not b:
@@ -136,26 +135,51 @@ def predict_match(conn, home, away, mando=0.0, city=None, sigma_ajuste=None, usa
     banda_mando2 = 20.0 ** 2 if mando else 0.0
     sigma_dr = math.sqrt(sr_a ** 2 + sr_b ** 2 + sa_a ** 2 + sa_b ** 2 + banda_mando2)
     ga = gd_alt(city, a["name"], b["name"]) if city else 0.0
-    # Camada 3 (D-41): desfalques direcionais — ataque corta GD; defesa/goleiro mexe no dr.
-    dr_desf = gd_desf = 0.0
+    # Camada 3 (D-41/D-53): desfalques direcionais — defesa/goleiro mexe no dr; ataque corta
+    # o λ do PRÓPRIO time (δ_ata multiplicativo, NÃO infla o rival — audit N-A corrigido).
+    dr_desf = 0.0
+    datk_home = datk_away = 0.0
     if desfalques:
         from .desfalques import match_deltas
-        dr_desf, gd_desf = match_deltas(desfalques.get("home", []), desfalques.get("away", []))
+        dr_desf, datk_home, datk_away = match_deltas(desfalques.get("home", []),
+                                                     desfalques.get("away", []))
         dr += dr_desf
-        ga += gd_desf
     ea = eb = 1.0
     if usar_estilo:
         from .estilo import team_styles
         st, _ = team_styles(conn)
         ea, eb = st.get(a["team_id"], 1.0), st.get(b["team_id"], 1.0)
-    pr = predict(dr, sigma_dr, PredictParams(), estilo_a=ea, estilo_b=eb, gd_alt=ga)
+    # perna AD não-Elo (v0.4): a porta da frente entrega o MESMO ensemble do backtest.
+    # Sem isto, predict() ignora a perna (ad_ved=None) e a produção divergiria do modelo
+    # validado. fit(conn) faz um passe cronológico (~1-2s) → λ AD atual das duas seleções.
+    pp = PredictParams()
+    ad_ved = None
+    if pp.w_ad > 0:
+        from .attack_defense import fit as _ad_fit, team_lambdas as _ad_lams
+        from .predictor import poisson_reads as _pr
+        _atk, _dfn = _ad_fit(conn)
+        _la, _lb = _ad_lams(_atk, _dfn, a["team_id"], b["team_id"], neutral=(mando == 0))
+        _ar = _pr(_la, _lb, pp.max_goals)
+        ad_ved = (_ar["pv"], _ar["pe"], _ar["pd"])
+    pr = predict(dr, sigma_dr, pp, estilo_a=ea, estilo_b=eb, gd_alt=ga,
+                 datk_a=datk_home, datk_b=datk_away, ad_ved=ad_ved)
+    # odds AUTO (D-54.2): se nenhuma odd foi passada mas há `date`, busca o mercado gravado
+    # no `odds_hist` (via `scm.odds`) p/ o confronto — assim a porta da frente usa o mercado
+    # disponível sem passagem manual, igual ao registrar. Sem date/sem dado, segue sem mercado.
+    if odds is None and date:
+        from .odds import market_read
+        _mk = market_read(conn, a["name"], b["name"], date)
+        if _mk and all(_mk.get(k, 0) > 0 for k in ("p_v", "p_e", "p_d")):
+            odds = (1.0 / _mk["p_v"], 1.0 / _mk["p_e"], 1.0 / _mk["p_d"])
     # 3ª perna do ensemble (D-44): se houver odds, mistura o 1X2 com o mercado (peso 0.20,
     # contrato §3.8). odds = (odd_casa, odd_empate, odd_fora) decimais. Mercados λ ficam do modelo.
     mercado = None
+    p_model = None
     if odds:
         from .odds import implied_probs, blend as _blend
         mercado = implied_probs(*odds)
-        bl = _blend({"p_v": pr["p_v"], "p_e": pr["p_e"], "p_d": pr["p_d"]}, mercado)
+        p_model = {"p_v": pr["p_v"], "p_e": pr["p_e"], "p_d": pr["p_d"]}   # 1X2 do MODELO (antes da mistura)
+        bl = _blend(p_model, mercado)
         pr["p_v"], pr["p_e"], pr["p_d"] = bl["p_v"], bl["p_e"], bl["p_d"]
     # banda recentrada no ponto do ensemble (largura = incerteza propagada da leitura Elo-direto)
     hw = (pr["band_pv_hi"] - pr["band_pv_lo"]) / 2.0
@@ -171,7 +195,8 @@ def predict_match(conn, home, away, mando=0.0, city=None, sigma_ajuste=None, usa
     return {"home": a["name"], "away": b["name"], "elo_home": a["elo"], "elo_away": b["elo"],
             "sigma_home": a["sigma_r"], "sigma_away": b["sigma_r"], "dr": dr, "sigma_dr": sigma_dr,
             "form_a": form_a, "form_b": form_b, "mando": mando,
-            "gd_alt": ga, "dr_desf": dr_desf, "gd_desf": gd_desf, "mercado": mercado,
+            "gd_alt": ga, "dr_desf": dr_desf, "datk_home": datk_home, "datk_away": datk_away,
+            "mercado": mercado, "p_model": p_model,
             "estilo_a": ea, "estilo_b": eb,
             "provisional": bool(a["provisional"] or b["provisional"]),
             "reliab_stale": bool(reliab_model and reliab_model != MODEL_VERSION),
@@ -193,12 +218,14 @@ def main(argv=None) -> int:
                    help="jogo eliminatório: mostra a probabilidade de AVANÇAR (empate→prorrog./pênaltis)")
     p.add_argument("--odds", nargs=3, type=float, default=None, metavar=("CASA", "EMPATE", "FORA"),
                    help="odds decimais de mercado (ex.: 2.10 3.30 3.60): mistura no 1X2 (peso 0.20, §3.8)")
+    p.add_argument("--date", default=None,
+                   help="data do jogo (YYYY-MM-DD): auto-carrega odds gravadas no odds_hist se não passar --odds")
     args = p.parse_args(argv)
     if not Path(args.db).exists():
         print(f"[erro] {args.db} não existe. Rode ingest + elo_engine antes."); return 1
     conn = db.connect(args.db)
     r = predict_match(conn, args.home, args.away, args.mando, args.city, usar_estilo=args.estilo,
-                      odds=tuple(args.odds) if args.odds else None)
+                      odds=tuple(args.odds) if args.odds else None, date=args.date)
     conn.close()
     if r.get("erro"):
         sg = ", ".join(r["sugestoes"]) or "—"

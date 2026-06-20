@@ -96,11 +96,21 @@ def team_form(conn, team_id: int, before_date: str, p: FeatureParams):
 
 
 def run(conn, params: FeatureParams = FeatureParams(),
-        elo_params: EloParams = EloParams()) -> dict:
-    """Monta match_features para todos os jogos. Idempotente. Exige elo_engine antes."""
+        elo_params: EloParams = EloParams(), use_glicko: bool = False) -> dict:
+    """Monta match_features para todos os jogos. Idempotente. Exige elo_engine antes.
+
+    use_glicko (candidato P-B/D-42, OFF por padrão): usa o RD de Glicko-1 PIT
+    (`sigma_glicko.run_pit`) como base de σ_R, em vez de `sigma_r(n)·vol_mult` — que satura ~40
+    p/ TODA elite, tornando banda/confiança pouco informativas. Adoção exige o portão de
+    cobertura de banda: `python -m scm.sigma_glicko --gate`.
+    """
     db.init_schema(conn)
     if conn.execute("SELECT COUNT(*) FROM match_ratings").fetchone()[0] == 0:
         raise RuntimeError("match_ratings vazio — rode elo_engine.run primeiro.")
+    glicko_pit = None
+    if use_glicko:
+        from .sigma_glicko import run_pit
+        glicko_pit = run_pit(conn)   # {match_id: (rd_home, rd_away)} PIT (anti look-ahead)
     conn.execute("DELETE FROM match_features")
     rows = conn.execute(
         """SELECT m.match_id, m.date, m.home_team_id, m.away_team_id,
@@ -112,8 +122,11 @@ def run(conn, params: FeatureParams = FeatureParams(),
     for r in rows:
         fh, dh, nh_f = team_form(conn, r["home_team_id"], r["date"], params)
         fa, da, na_f = team_form(conn, r["away_team_id"], r["date"], params)
-        sr_h = sigma_r(r["home_n_pre"], elo_params) * vol_mult(dh, nh_f)
-        sr_a = sigma_r(r["away_n_pre"], elo_params) * vol_mult(da, na_f)
+        if glicko_pit is not None:
+            sr_h, sr_a = glicko_pit[r["match_id"]]   # σ_R guiado por dados (RD varia ~51–64 nas elites)
+        else:
+            sr_h = sigma_r(r["home_n_pre"], elo_params) * vol_mult(dh, nh_f)
+            sr_a = sigma_r(r["away_n_pre"], elo_params) * vol_mult(da, na_f)
         sa_h = params.sigma_ajuste_c * dh
         sa_a = params.sigma_ajuste_c * da
         dr_adj = r["dr_elo"] + fh - fa
@@ -135,13 +148,15 @@ def run(conn, params: FeatureParams = FeatureParams(),
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description="Monta features point-in-time por jogo.")
     p.add_argument("--db", default=str(DEFAULT_DB))
+    p.add_argument("--glicko", action="store_true",
+                   help="[candidato P-B/D-42] usa σ_R de Glicko-1 (RD PIT) em vez de sigma_r(n)·vol_mult")
     args = p.parse_args(argv)
     if not Path(args.db).exists():
         print(f"[erro] SQLite não encontrado: {args.db}. Rode ingest + elo_engine antes.")
         return 1
     conn = db.connect(args.db)
-    stats = run(conn)
-    print(f"features montadas: {stats['features']} jogos")
+    stats = run(conn, use_glicko=args.glicko)
+    print(f"features montadas: {stats['features']} jogos" + ("  [σ=Glicko]" if args.glicko else ""))
     conn.close()
     return 0
 

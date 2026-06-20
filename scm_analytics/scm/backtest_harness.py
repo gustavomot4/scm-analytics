@@ -173,6 +173,60 @@ def evaluate_vs_elo(conn, versao, B=10000, seed=12345, only_major=False):
             "bate_elo": g["keep"], "veredito": verdict}
 
 
+def lookup_table(conn, width: float = 50.0, lo: float = -600.0, hi: float = 600.0, smooth: float = 1.0):
+    """Tabela empírica P(V/E/D) por faixa de `dr` (sinalizado). É o TETO de informação 'só-dr':
+    o melhor previsor possível que usa APENAS o dr (memoriza as frequências). Laplace `smooth`."""
+    nb = int((hi - lo) / width) + 1
+    agg = [[smooth, smooth, smooth] for _ in range(nb)]
+    idx = {"V": 0, "E": 1, "D": 2}
+    for r in conn.execute("SELECT mr.dr dr, m.home_score hs, m.away_score s "
+                          "FROM match_ratings mr JOIN matches m USING(match_id) "
+                          "WHERE m.home_score IS NOT NULL"):
+        b = min(nb - 1, max(0, int((max(lo, min(hi, r["dr"])) - lo) / width)))
+        agg[b][idx[outcome_of(r["hs"], r["s"])]] += 1
+    table = [(c[0] / sum(c), c[1] / sum(c), c[2] / sum(c)) for c in agg]
+    return table, (width, lo, hi, nb)
+
+
+def evaluate_vs_lookup(conn, versao, B=10000, seed=12345, only_major=False):
+    """MODELO vs TETO não-paramétrico (lookup empírico de V/E/D por faixa de dr).
+
+    Diagnóstico: se o modelo EMPATA com o lookup, ele já extrai ~todo o sinal do `dr` — para
+    melhorar precisa de informação ALÉM do dr (ex.: a perna ataque/defesa, P-A). [verificado]
+    (torneios): modelo 0,5617 vs lookup 0,5618 → EMPATA (no teto do dr).
+    """
+    table, meta = lookup_table(conn)
+    width, lo, hi, nb = meta
+
+    def _lpred(dr):
+        b = min(nb - 1, max(0, int((max(lo, min(hi, dr)) - lo) / width)))
+        pv, pe, pd = table[b]
+        return {"p_v": pv, "p_e": pe, "p_d": pd}
+
+    q = ("SELECT p.p_v, p.p_e, p.p_d, mr.dr, m.home_score, m.away_score "
+         "FROM predictions p JOIN matches m USING (match_id) "
+         "JOIN match_ratings mr USING (match_id) WHERE p.versao_modelo = ?")
+    params = [versao]
+    if only_major:
+        q += " AND m.tournament IN (%s)" % ",".join("?" * len(MAJOR))
+        params += list(MAJOR)
+    rows = conn.execute(q, params).fetchall()
+    if not rows:
+        return {"n": 0}
+    deltas, sb_m, sb_l = [], 0.0, 0.0
+    for r in rows:
+        o = outcome_of(r["home_score"], r["away_score"])
+        pm = {"p_v": r["p_v"], "p_e": r["p_e"], "p_d": r["p_d"]}
+        pl = _lpred(r["dr"])
+        bm, bl = brier(pm, o), brier(pl, o)
+        sb_m += bm; sb_l += bl; deltas.append(bl - bm)
+    g = gate(deltas, B, seed)
+    n = len(deltas)
+    return {"n": n, "brier_modelo": sb_m / n, "brier_lookup": sb_l / n,
+            "ganho_vs_lookup": g["mean"], "ic_lo": g["ic_lo"], "ic_hi": g["ic_hi"],
+            "bate_lookup": g["keep"]}
+
+
 def compare(conn, versao_a: str, versao_b: str, B: int = 10000, seed: int = 12345) -> dict:
     """ΔBrier pareado por match entre A e B (delta = brier_B − brier_A; >0 = A melhor)."""
     a = {r["match_id"]: r for r in conn.execute(
@@ -216,6 +270,13 @@ def main(argv=None) -> int:
         print("  --- vs baseline ELO PUBLICO (we + curva empirica C1) ---")
         print(f"  Brier modelo {e['brier_modelo']:.4f}  vs  Elo {e['brier_elo']:.4f}")
         print(f"  ganho vs Elo = {e['ganho_vs_elo']:+.4f}  IC95 [{e['ic_lo']:+.4f}, {e['ic_hi']:+.4f}]  -> {e['veredito']}")
+    lk = evaluate_vs_lookup(conn, args.versao, only_major=args.major)
+    if lk.get("n"):
+        v = ("bate o teto (IC>0)" if lk["ic_lo"] > 0 else
+             "PIOR que o teto (IC<0)" if lk["ic_hi"] < 0 else "no teto do dr (empata)")
+        print("  --- vs TETO nao-parametrico (lookup empirico de V/E/D por faixa de dr) ---")
+        print(f"  Brier modelo {lk['brier_modelo']:.4f}  vs  lookup {lk['brier_lookup']:.4f}")
+        print(f"  ganho vs lookup = {lk['ganho_vs_lookup']:+.4f}  IC95 [{lk['ic_lo']:+.4f}, {lk['ic_hi']:+.4f}]  -> {v}")
     conn.close()
     return 0
 

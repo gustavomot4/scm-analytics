@@ -133,3 +133,12 @@ Implementadas mais correções de [[Auditoria tecnica completa (2026-06-19)]], *
 - **Simulate** (D-52): desempate de grupo por **confronto direto** (regra FIFA) antes do sorteio; `alt_venues` aceita sede por jogo (`"A|B": cidade`).
 - **xG** (D-50): `team_xg` + `scm/xg.py` — esqueleto OFF (precisa do StatsBomb + portão).
 - **Fechamento honesto:** o núcleo está no teto (DC/recal/σ-Glicko/σ_dr todos barrados pelo portão). O valor agora é **operacional** (registrar a Copa) e **dados** (desfalques/odds/xG). Pare de adicionar fórmula; meça.
+
+## ▶ Atualização 2026-06-20 — v0.4 (perna AD ligada; portão aplicado)
+Modelo recomendado agora: **`baseline-v0.4-ad`**. Implementação do plano da [[Auditoria + plano de melhorias (modelo, 2026-06-20)]] (Fases 0–3). Detalhe em [[Evolucao v0.4 - perna AD + sigma no torneio (2026-06-20)]].
+- **Perna ataque/defesa não-Elo LIGADA** (`w_ad=0.30`) — fonte de gols independente do `dr`. Portão **+0,0039 IC[+0,0028,+0,0051]** (torneios). O modelo agora **bate o teto não-paramétrico do `dr`** (torneios vs lookup **+0,0062 IC>0**; era empate). Brier torneios **0,5590→0,5554**, todos **0,5365→0,5336**. [verificado]
+- **Porta da frente alinhada:** `predict_match` passou a usar a perna AD (consistência produção↔backtest).
+- **σ propagado no Monte Carlo** (`simulate`): a sim deixa de tratar o Elo como exato (efeito modesto — σ_R degenerado).
+- **Rejeitados pelo portão (ficam OFF):** `T_base` (ótimo=2,60), forma `tanh` (pior no tail −0,0042), recalibração 1X2 (T=1,0; isotônica −0,0021), σ-Glicko (banda já sobre-cobre). Ressalva: ECE subiu 0,026→0,033.
+- **Higiene:** novo `tests/test_skill_regression.py` (trava o skill do backtest, audit P12); `config.W_AD`.
+- **Rebuild:** `rm -rf scm/__pycache__ && python -m scm.predictor` (a base muda). Rode `pytest` na sua máquina.

@@ -15,12 +15,12 @@ def test_team_penalty_tiers_ordered():
 
 
 def test_match_deltas_directions():
-    # ataque do mandante fora -> GD cai; defesa do visitante fora -> dr sobe
-    ddr, dgd = match_deltas([{"setor": "ataque", "tier": "chave"}],
-                            [{"setor": "defesa", "tier": "importante"}])
-    assert dgd < 0 and ddr > 0
+    # ataque do mandante fora -> corte (datk) do PRÓPRIO time > 0; defesa do visitante fora -> dr sobe
+    ddr, dah, daa = match_deltas([{"setor": "ataque", "tier": "chave"}],
+                                 [{"setor": "defesa", "tier": "importante"}])
+    assert dah > 0 and ddr > 0 and daa == 0.0   # ataque do mandante não toca o visitante (N-A)
     # simétrico: zerar tudo -> deltas nulos
-    assert match_deltas([], []) == (0.0, 0.0)
+    assert match_deltas([], []) == (0.0, 0.0, 0.0)
 
 
 def test_setor_desconhecido_nao_inventa_efeito():
@@ -49,5 +49,6 @@ def test_predict_match_applies_attack_absence():
                            desfalques={"home": [{"setor": "ataque", "tier": "chave"}], "away": []})
     c.close()
     assert out["lambda_a"] < base["lambda_a"]      # Brasil sem atacante-chave marca menos
+    assert out["lambda_b"] <= base["lambda_b"] + 1e-9   # N-A: o rival NÃO é inflado
     assert out["p_v"] < base["p_v"]
     assert out["p_v"] + out["p_e"] + out["p_d"] == pytest.approx(1.0, abs=1e-9)

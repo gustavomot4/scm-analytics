@@ -21,12 +21,15 @@ from . import db
 from .elo_engine import we
 from .ingest import DEFAULT_DB
 
-MODEL_VERSION = "baseline-v0.3-altitude"
+MODEL_VERSION = "baseline-v0.4-ad"
 
 # Curva de empate empírica C1 (P_E por faixa de |dr|), CONGELADA do martj42 (n=49.423,
 # dr pré-jogo de match_ratings). Substitui o proxy fechado que a auditoria v5 proibiu
 # (camada1-revisao-v5 §1 V6 / camada1-apendice-formas-v5 §3). Reconstruível por
 # build_draw_curve(); fallback p/ o proxy se use_empirical_draw=False.
+# CAVEAT (audit N-B): esta tabela foi ajustada IN-SAMPLE (conjunto inteiro, inclui os jogos
+# avaliados no backtest) — leve vazamento na componente P(E). Para um backtest 100% PIT,
+# rebuild com build_draw_curve(conn, before_date=<cutoff>). Efeito de 2ª ordem.
 DRAW_CURVE = ((20, 0.2847), (60, 0.2710), (100, 0.2629), (140, 0.2567), (180, 0.2451),
               (225, 0.2303), (275, 0.2091), (350, 0.1644), (450, 0.1208), (600, 0.0554))
 
@@ -34,6 +37,12 @@ DRAW_CURVE = ((20, 0.2847), (60, 0.2710), (100, 0.2629), (140, 0.2567), (180, 0.
 @dataclass(frozen=True)
 class PredictParams:
     theta_gd: float = 0.45        # GD = θ·dr/100 [a calibrar]
+    # Forma do saldo f(dr) — candidato P-D (audit): "linear" (default, validado) ou "sat"
+    # (saturante GD_max·tanh(dr/escala)). A linear faz λ_B<0 no tail (dr≳740) e o piso passa a
+    # MODELAR; a saturante mantém λ_B>0 sem clamp. Default inalterado → precisa do PORTÃO p/ adotar.
+    gd_form: str = "linear"
+    gd_max: float = 3.0           # asíntota do saldo (saturante) [a calibrar]
+    gd_scale: float = 667.0       # escala de dr (inclinação em 0 ≈ θ/100; casa a linear em |dr|≲300)
     t_base: float = 2.6           # T_m = T_base + κ·|dr|/100 [a calibrar]
     kappa_tm: float = 0.10
     lambda_min: float = 0.15      # piso de λ (regularização honesta)
@@ -46,12 +55,18 @@ class PredictParams:
     n_strata: int = 200           # propagação determinística
     w_poisson: float = 0.56       # pesos sem odds (backtest histórico)
     w_elo: float = 0.44
+    w_ad: float = 0.30            # perna ataque/defesa não-Elo (P-A) — ADOTADA v0.4 (portão +0.0039,
+                                  #   IC[+0.0028,+0.0051]); fonte independente de gols (corr ~0.95 vs 0.997)
     clamp_lo: float = 0.02
     clamp_hi: float = 0.96
     eps_ko: float = 0.03         # mata-mata: leve vantagem do + forte no desempate [a calibrar]
 
 
 def gd_of(dr: float, p: PredictParams) -> float:
+    # forma saturante (candidato P-D): mantém λ_B>0 no tail sem depender do piso. Default linear
+    # (validado). tanh(dr/escala)·GD_max ≈ θ·dr/100 perto de 0 (onde há dados) e satura no tail.
+    if getattr(p, "gd_form", "linear") == "sat":
+        return p.gd_max * math.tanh(dr / p.gd_scale)
     return p.theta_gd * dr / 100.0
 
 
@@ -61,7 +76,8 @@ def tm_of(dr: float, p: PredictParams, estilo_a: float = 1.0, estilo_b: float = 
 
 
 def lambdas(dr: float, p: PredictParams, estilo_a: float = 1.0, estilo_b: float = 1.0,
-            gd_alt: float = 0.0, heat_factor: float = 1.0):
+            gd_alt: float = 0.0, heat_factor: float = 1.0,
+            datk_a: float = 0.0, datk_b: float = 0.0):
     gd = gd_of(dr, p) + gd_alt
     tm = tm_of(dr, p, estilo_a, estilo_b, heat_factor=heat_factor)
     la = (tm + gd) / 2.0
@@ -75,6 +91,15 @@ def lambdas(dr: float, p: PredictParams, estilo_a: float = 1.0, estilo_b: float 
     elif la < lmin:
         la = lmin
         lb = max(lmin, tm - la)
+    # δ_ata (D-53): desfalque OFENSIVO corta o λ do PRÓPRIO time (contrato §8 passo 6:
+    # λ_T = λ_T0·(1−δ_ata_T)) e NÃO infla o rival. Antes a Camada 3 roteava o ataque pelo
+    # canal de GD (soma-zero em λ), o que SUBIA o λ do adversário — invertia a regra do
+    # contrato (audit N-A, verificado: rival +13%). Corte multiplicativo + piso simples (não
+    # reconserva T_m: uma ausência ofensiva DEVE reduzir o total daquele time).
+    if datk_a:
+        la = max(lmin, la * (1.0 - datk_a))
+    if datk_b:
+        lb = max(lmin, lb * (1.0 - datk_b))
     return la, lb
 
 
@@ -129,11 +154,25 @@ def draw_prob(dr: float, p: PredictParams) -> float:
     return p.draw_base * math.exp(-abs(dr) / p.draw_scale)
 
 
-def build_draw_curve(conn, edges=(0, 40, 80, 120, 160, 200, 250, 300, 400, 500)):
-    """Reconstrói a curva empírica P_E(|dr|) do match_ratings (dr pré-jogo). Transparência/rebuild."""
+def build_draw_curve(conn, edges=(0, 40, 80, 120, 160, 200, 250, 300, 400, 500),
+                     before_date=None):
+    """Reconstrói a curva empírica P_E(|dr|) do match_ratings (dr pré-jogo). Transparência/rebuild.
+
+    CAVEAT (audit N-B): a `DRAW_CURVE` congelada no módulo foi ajustada no conjunto INTEIRO,
+    inclusive nos jogos depois avaliados no backtest — um leve vazamento in-sample na
+    componente P(E) (o Elo e a forma são point-in-time; a curva de empate não era). Para um
+    backtest 100% PIT, passe `before_date` (cutoff do treino) e congele a curva resultante; o
+    ganho passa a ser fora de amostra. Efeito de 2ª ordem (a curva tem poucos g.l.), mas a
+    ressalva fica declarada.
+    """
     import bisect
-    rows = conn.execute("SELECT mr.dr, m.home_score, m.away_score "
-                        "FROM match_ratings mr JOIN matches m USING (match_id)").fetchall()
+    if before_date:
+        rows = conn.execute("SELECT mr.dr, m.home_score, m.away_score "
+                            "FROM match_ratings mr JOIN matches m USING (match_id) "
+                            "WHERE m.date < ?", (before_date,)).fetchall()
+    else:
+        rows = conn.execute("SELECT mr.dr, m.home_score, m.away_score "
+                            "FROM match_ratings mr JOIN matches m USING (match_id)").fetchall()
     agg = [[0, 0] for _ in range(len(edges))]
     for dr, hs, a in rows:
         k = min(bisect.bisect_right(edges, abs(dr)) - 1, len(edges) - 1)
@@ -233,13 +272,23 @@ def knockout_advance(p_v: float, p_e: float, p_d: float, dr: float,
 
 def predict(dr: float, sigma_dr: float, p: PredictParams = PredictParams(),
             estilo_a: float = 1.0, estilo_b: float = 1.0, gd_alt: float = 0.0,
-            heat_factor: float = 1.0) -> dict:
-    la, lb = lambdas(dr, p, estilo_a, estilo_b, gd_alt=gd_alt, heat_factor=heat_factor)
+            heat_factor: float = 1.0, datk_a: float = 0.0, datk_b: float = 0.0,
+            ad_ved=None) -> dict:
+    la, lb = lambdas(dr, p, estilo_a, estilo_b, gd_alt=gd_alt, heat_factor=heat_factor,
+                     datk_a=datk_a, datk_b=datk_b)
     pois = poisson_reads(la, lb, p.max_goals)
     elo = elo_direct_read(dr, sigma_dr, p)
     cp = _clamp_norm((pois["pv"], pois["pe"], pois["pd"]), p.clamp_lo, p.clamp_hi)
     ce = _clamp_norm((elo["pv"], elo["pe"], elo["pd"]), p.clamp_lo, p.clamp_hi)
-    mix = [p.w_poisson * cp[i] + p.w_elo * ce[i] for i in range(3)]
+    # ensemble: Poisson + Elo (+ AD não-Elo, P-A — só quando w_ad>0 E ad_ved dado). A
+    # normalização por wsum mantém o caso w_ad=0 IDÊNTICO ao anterior (wsum=0.56+0.44=1.0).
+    ws = p.w_poisson + p.w_elo
+    if ad_ved is not None and p.w_ad > 0:
+        ca = _clamp_norm(ad_ved, p.clamp_lo, p.clamp_hi)
+        ws += p.w_ad
+        mix = [(p.w_poisson * cp[i] + p.w_elo * ce[i] + p.w_ad * ca[i]) / ws for i in range(3)]
+    else:
+        mix = [(p.w_poisson * cp[i] + p.w_elo * ce[i]) / ws for i in range(3)]
     final = _clamp_norm(mix, p.clamp_lo, p.clamp_hi)
     ko = knockout_advance(final[0], final[1], final[2], dr, p)
     return {
@@ -253,10 +302,14 @@ def predict(dr: float, sigma_dr: float, p: PredictParams = PredictParams(),
 
 
 def run(conn, params: PredictParams = PredictParams()) -> dict:
-    from .altitude import gd_alt  # import tardio (evita ciclo predictor<->altitude)
+    from .factors import gd_alt  # termo puro (arquitetura: ciclo predictor↔altitude quebrado)
     db.init_schema(conn)
     if conn.execute("SELECT COUNT(*) FROM match_features").fetchone()[0] == 0:
         raise RuntimeError("match_features vazio — rode features_pit.run primeiro.")
+    ad_pit = None
+    if params.w_ad > 0:                       # perna AD não-Elo (P-A): só quando ligada (w_ad>0)
+        from .attack_defense import run_pit   # puro (sem ciclo); λ PRÉ-jogo (PIT)
+        ad_pit = run_pit(conn)
     conn.execute("DELETE FROM predictions WHERE versao_modelo = ?", (MODEL_VERSION,))
     rows = conn.execute(
         """SELECT mf.match_id, mf.dr_adj, mf.sigma_dr, m.city,
@@ -268,7 +321,13 @@ def run(conn, params: PredictParams = PredictParams()) -> dict:
     n = 0
     for r in rows:
         ga = gd_alt(r["city"], r["home"], r["away"])
-        pr = predict(r["dr_adj"], r["sigma_dr"], params, gd_alt=ga)
+        ad_ved = None
+        if ad_pit is not None:
+            lah, lbh = ad_pit.get(r["match_id"], (None, None))
+            if lah is not None:
+                ar = poisson_reads(lah, lbh, params.max_goals)
+                ad_ved = (ar["pv"], ar["pe"], ar["pd"])
+        pr = predict(r["dr_adj"], r["sigma_dr"], params, gd_alt=ga, ad_ved=ad_ved)
         conn.execute(
             """INSERT OR REPLACE INTO predictions
                (match_id, versao_modelo, p_v, p_e, p_d, band_pv_lo, band_pv_hi,

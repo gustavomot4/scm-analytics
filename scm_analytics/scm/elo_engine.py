@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import math
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Optional, Union
 
@@ -30,6 +31,11 @@ class EloParams:
     sigma_floor: float = 40.0       # σ_R mínimo (muitos jogos) [a calibrar]
     sigma_provisional: float = 200.0  # σ_R de estreante (n=0) [a calibrar]
     sigma_tau: float = 20.0         # escala de decaimento de σ_R [a calibrar]
+    # Reversão à média PIT (candidato P-M): antes de cada jogo, puxa o rating rumo a `init`
+    # por 0.5^(meses_parado/half_life). 0 = OFF (default, modelo validado). TESTADO e
+    # REJEITADO pelo portão (piora o Brier: half_life 24–144m dá ΔBrier −0,006..−0,023, IC<0;
+    # ver scm.calibrate_recency) — a inflação absoluta do Elo é cosmética, não preditiva.
+    revert_half_life_months: float = 0.0
 
 
 def we(dr: float) -> float:
@@ -51,7 +57,12 @@ def k_factor(tournament: Optional[str]) -> float:
     """K por tipo de competição (heurística por palavra-chave) [a calibrar].
 
     Copa do Mundo 60 · eliminatórias 40 · Nations League 30 · amistoso 20 ·
-    finais continentais 50 · competitivo desconhecido 40.
+    campeonatos continentais 50 · competitivo desconhecido 40.
+
+    N-E (audit): o K=50 vale p/ TODAS as fases de um continental (Euro/Copa América etc.),
+    não só finais — é o que o contrato §3.1 manda ("50 continental", sem distinção de fase).
+    O martj42 não codifica a fase no campo `tournament`, então não há como dar K menor à
+    fase de grupos sem um dado de fase. (Comentário antigo dizia "finais continentais 50".)
     """
     t = (tournament or "").lower()
     if "friendly" in t:
@@ -74,6 +85,21 @@ def sigma_r(n_games: int, p: EloParams) -> float:
     return p.sigma_floor + (p.sigma_provisional - p.sigma_floor) * math.exp(-n_games / p.sigma_tau)
 
 
+def _revert(rating: float, last_played: Optional[str], now: str, p: EloParams) -> float:
+    """Reversão à média PIT (P-M, candidato OFF): puxa o rating rumo a `init` por meses parado.
+
+    Fator = 0.5^(meses_parado / half_life). TESTADO e REJEITADO (piora o Brier) — ver
+    scm.calibrate_recency e a nota no EloParams. Default OFF (half_life=0) → no-op.
+    """
+    if not last_played or p.revert_half_life_months <= 0:
+        return rating
+    try:
+        gap = (date.fromisoformat(now) - date.fromisoformat(last_played)).days / 30.44
+    except (TypeError, ValueError):
+        return rating
+    return p.init + (rating - p.init) * (0.5 ** (gap / p.revert_half_life_months))
+
+
 def run(conn, params: EloParams = EloParams()) -> dict:
     """Reconstrói o Elo cronologicamente. Idempotente (limpa e refaz)."""
     db.init_schema(conn)
@@ -82,6 +108,7 @@ def run(conn, params: EloParams = EloParams()) -> dict:
 
     ratings: dict[int, float] = {}
     ngames: dict[int, int] = {}
+    last_played: dict[int, str] = {}
 
     rows = conn.execute(
         """SELECT match_id, date, home_team_id, away_team_id,
@@ -93,6 +120,9 @@ def run(conn, params: EloParams = EloParams()) -> dict:
         h, a = r["home_team_id"], r["away_team_id"]
         rh = ratings.get(h, params.init)
         ra = ratings.get(a, params.init)
+        if params.revert_half_life_months > 0:   # P-M: reversão à média PIT (candidato OFF)
+            rh = _revert(rh, last_played.get(h), r["date"], params)
+            ra = _revert(ra, last_played.get(a), r["date"], params)
         nh = ngames.get(h, 0)
         na = ngames.get(a, 0)
 
@@ -116,6 +146,8 @@ def run(conn, params: EloParams = EloParams()) -> dict:
         ratings[a] = ra - delta
         ngames[h] = nh + 1
         ngames[a] = na + 1
+        last_played[h] = r["date"]
+        last_played[a] = r["date"]
 
     for team_id, elo in ratings.items():
         n = ngames[team_id]

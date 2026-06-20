@@ -1,5 +1,8 @@
 # Stack do baseline (ver vault: 00 - Projeto/TECH_STACK.md)
 # Faixas com teto de major (P-J/D-43): reprodutibilidade sem prender a versão exata.
+# Para um LOCK exato (reprodutibilidade total), gere na sua máquina:
+#   pip install -r requirements.txt && pip freeze > requirements.lock
+# e instale o ambiente com `pip install -r requirements.lock`.
 requests>=2.31,<3       # download do snapshot (ingest) — única parte que usa rede
 numpy>=1.26,<3          # cálculos (elo_engine, harness, simulate)
 pandas>=2.0,<3          # manipulação de dados

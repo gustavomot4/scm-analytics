@@ -6,6 +6,7 @@ Schema espelha a nota do vault: `03 - Dados/Esquema SQLite.md`.
 from __future__ import annotations
 
 import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Union
 
@@ -100,6 +101,27 @@ CREATE TABLE IF NOT EXISTS team_xg (
     n_games   INTEGER,
     source    TEXT
 );
+-- venues/context (P-H): aproximam o schema-alvo do design (03 - Dados/Esquema SQLite.md).
+-- ADITIVO — nenhum módulo atual depende delas; destravam altitude por sede e fuso/descanso
+-- (contexto físico) sem novas migrações quando esses dados existirem.
+CREATE TABLE IF NOT EXISTS venues (
+    venue_id     INTEGER PRIMARY KEY,
+    name         TEXT,
+    city         TEXT,
+    country      TEXT,
+    lat          REAL,
+    lon          REAL,
+    elevation_m  REAL,
+    covered      INTEGER DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS context (
+    match_id        INTEGER PRIMARY KEY REFERENCES matches(match_id),
+    rest_days_home  INTEGER,
+    rest_days_away  INTEGER,
+    dfuso_home      REAL,
+    dfuso_away      REAL,
+    wbgt_est        REAL
+);
 """
 
 
@@ -109,6 +131,22 @@ def connect(db_path: Union[str, Path]) -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON;")
     return conn
+
+
+@contextmanager
+def session(db_path: Union[str, Path]):
+    """Conexão como context manager: FECHA sempre, mesmo em erro (audit P-I).
+
+    Evita o vazamento de conexão dos caminhos `conn = connect(...); ...; conn.close()`,
+    que não fecham se algo levanta exceção no meio. Uso:
+        with db.session(path) as conn:
+            ...
+    """
+    conn = connect(db_path)
+    try:
+        yield conn
+    finally:
+        conn.close()
 
 
 def init_schema(conn: sqlite3.Connection) -> None:

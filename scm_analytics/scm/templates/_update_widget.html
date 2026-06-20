@@ -1,0 +1,59 @@
+{# Componente ÚNICO do botão "Atualizar dados" (incluído via {% include %} nas 4 telas).
+   Fonte única p/ não divergir. Mostra barra de progresso + etapa (i/5) + tempo decorrido. #}
+<style>
+  .upd{margin-bottom:10px}
+  .upd-btn{width:100%;height:32px;border:1px solid var(--border-strong,#d2d6db);border-radius:6px;
+    background:#fff;color:var(--text,#1c1f23);font:inherit;font-size:13px;cursor:pointer}
+  .upd-btn:hover{background:#eceff3} .upd-btn:disabled{opacity:.6;cursor:default}
+  .upd-prog{display:none;margin-top:8px} .upd-prog.show{display:block}
+  .upd-bar{height:7px;background:var(--panel,#f7f8fa);border:1px solid var(--border,#e5e7eb);
+    border-radius:999px;overflow:hidden}
+  .upd-bar i{display:block;height:100%;width:0;background:var(--accent,#2563eb);transition:width .4s ease}
+  .upd-bar i.busy{background-image:linear-gradient(90deg,var(--accent,#2563eb) 0 60%,#7aa7f6 60% 100%);
+    background-size:18px 100%;animation:upd-stripe 1s linear infinite}
+  @keyframes upd-stripe{from{background-position:0 0}to{background-position:18px 0}}
+  .upd-row{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:var(--muted,#6b7280);margin-top:5px}
+  .upd-row b{color:var(--text,#1c1f23);font-weight:600}
+  .upd-done{color:#15803d;font-weight:600} .upd-err{color:#b91c1c;font-weight:600}
+</style>
+<div class="upd">
+  <button class="upd-btn" id="btnUpd" title="Baixa dados novos e reconstrói o modelo (~1–2 min)">↻ Atualizar dados</button>
+  <div class="upd-prog" id="updProg">
+    <div class="upd-bar"><i id="updBar"></i></div>
+    <div class="upd-row"><span id="updStep">…</span><span id="updTime" class="tnum"></span></div>
+  </div>
+</div>
+<script>
+(function(){
+  const b=document.getElementById('btnUpd'), prog=document.getElementById('updProg'),
+        bar=document.getElementById('updBar'), step=document.getElementById('updStep'),
+        tm=document.getElementById('updTime');
+  if(!b) return;
+  const N=5; let t0=0, timer=null;
+  const fmt=s=>{s=Math.floor(s);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');};
+  function setBar(pctv, busy){ bar.style.width=Math.max(4,pctv)+'%'; bar.classList.toggle('busy', !!busy); }
+  function stop(){ if(timer){clearInterval(timer);timer=null;} }
+  b.addEventListener('click', async()=>{
+    if(!confirm('Atualizar a base?\n\nBaixa o snapshot novo do martj42, reconstrói o Elo, monta as '
+      +'features e gera as previsões. Costuma levar ~1–2 min (a etapa de features é a mais demorada). '
+      +'Evite prever/simular enquanto roda.')) return;
+    b.disabled=true; prog.classList.add('show'); setBar(4,true); step.innerHTML='<b>Iniciando…</b>';
+    t0=Date.now(); tm.textContent='0:00'; timer=setInterval(()=>{tm.textContent=fmt((Date.now()-t0)/1000);},1000);
+    try{
+      const r=await (await fetch('/api/update',{method:'POST'})).json();
+      if(r.erro){ step.innerHTML='<b class="upd-err">'+r.erro+'</b>'; b.disabled=false; stop(); return; }
+      const poll=setInterval(async()=>{ try{
+        const s=await (await fetch('/api/update/status')).json();
+        const i=s.i||0;
+        setBar(Math.round(i/N*100), s.state==='running');
+        step.innerHTML='<b>Passo '+i+'/'+N+'</b> — '+(s.step||'');
+        if(s.state==='done'){ clearInterval(poll); stop(); setBar(100,false);
+          step.innerHTML='<b class="upd-done">✓ Base atualizada</b> — recarregando…';
+          setTimeout(()=>location.reload(),1400); }
+        else if(s.state==='error'){ clearInterval(poll); stop();
+          step.innerHTML='<b class="upd-err">Erro:</b> '+(s.message||'').slice(0,90); b.disabled=false; }
+      }catch(e){} }, 1200);
+    }catch(e){ step.innerHTML='<b class="upd-err">Falha ao iniciar.</b>'; b.disabled=false; stop(); }
+  });
+})();
+</script>

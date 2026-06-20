@@ -1,62 +1,26 @@
-"""Altitude (E1) — termo GD_alt (McSharry), atrás do portão.
+"""altitude (E1) — PORTÃO do termo GD_alt (McSharry), atrás do critério de aceite.
 
-Usa a **cidade** da partida (do martj42) + tabelas pequenas de elevação (fatos públicos,
-**[verificar via Open-Meteo Elevation]**). McSharry (BMJ 2007): ~½ gol de saldo por 1000 m
-de diferença; só morde para o time **não-adaptado** jogando em sede alta.
+O TERMO PURO (gd_alt e tabelas de elevação) foi movido p/ `scm/factors.py` para quebrar o
+ciclo de import `predictor↔altitude` (audit, arquitetura). Aqui ficam só os PORTÕES, que
+precisam de `predictor` + `backtest_harness` (avaliação). Os nomes puros são REEXPORTADOS
+abaixo, então `from .altitude import gd_alt` segue funcionando.
 
-    pen(T)  = max(0, elev_sede − elev_casa_T)
-    GD_alt  = θ_alt · (pen_away − pen_home) / 1000        (favorece quem está adaptado)
-
-Aceite (portão): `compare()` v0.1 vs v0.1+altitude **só nos jogos de altitude** (gd_alt≠0);
-mantém o termo SSE o IC do ΔBrier não cruza zero. Ver vault `02 - Modelos/Ajustes ambientais`.
+McSharry (BMJ 2007): ~½ gol de saldo por 1000 m de diferença; só morde p/ o time não-adaptado
+jogando em sede alta. Aceite (portão): `gate_altitude` compara v0.1 vs v0.1+GD_alt SÓ nos jogos
+de altitude; mantém o termo SSE o IC do ΔBrier não cruza zero. Ver `02 - Modelos/Ajustes ambientais`.
 """
 from __future__ import annotations
 
 import argparse
-import unicodedata
 
 from . import db
 from .predictor import PredictParams, predict
 from .backtest_harness import brier, outcome_of, gate
 from .ingest import DEFAULT_DB
-
-THETA_ALT = 0.5  # gol/1000 m (McSharry, CONMEBOL) — [a calibrar fora da CONMEBOL]
-
-def _norm(s) -> str:
-    """minúsculas + sem acentos (casa 'Bogotá'/'bogota'/'Ciudad de México' etc.)."""
-    s = unicodedata.normalize("NFKD", (s or "").strip().lower())
-    return "".join(ch for ch in s if not unicodedata.combining(ch))
-
-
-# Elevação (m) de cidades-sede de altitude. Fatos públicos aproximados — [verificar via Open-Meteo].
-# Chaves SEM acento (a busca normaliza). Limiar prático ~1500 m: cidades abaixo disso
-# (ex.: Monterrey 540 m) são tratadas como nível do mar — não são "altitude".
-# Inclui as sedes ALTAS da Copa 2026: Cidade do México (2240) e Guadalajara (1566).
-CITY_ALT = {
-    "la paz": 3637, "el alto": 4150, "oruro": 3706, "potosi": 4070, "cochabamba": 2558,
-    "sucre": 2810, "quito": 2850, "bogota": 2640, "cusco": 3399, "cuzco": 3399,
-    "arequipa": 2335, "pasto": 2527,
-    "mexico city": 2240, "ciudad de mexico": 2240, "toluca": 2660, "puebla": 2135,
-    "guadalajara": 1566, "zapopan": 1566,   # Guadalajara/Estadio Akron (sede 2026)
-}
-# Altitude "de casa" das seleções adaptadas (m). Default 0 (litoral) p/ as demais. [verificar]
-# As 4 seleções genuinamente adaptadas à altitude (jogam mando em cidade alta).
-TEAM_HOME_ALT = {"Bolivia": 3637, "Ecuador": 2850, "Colombia": 2640, "Mexico": 2240}
-
-
-def venue_alt(city) -> float:
-    return float(CITY_ALT.get(_norm(city), 0.0))
-
-
-def team_alt(name) -> float:
-    return float(TEAM_HOME_ALT.get(name, 0.0))
-
-
-def gd_alt(city, home_team, away_team, theta: float = THETA_ALT) -> float:
-    v = venue_alt(city)
-    pen_home = max(0.0, v - team_alt(home_team))
-    pen_away = max(0.0, v - team_alt(away_team))
-    return theta * (pen_away - pen_home) / 1000.0
+# termo puro + tabelas (agora em factors.py) — reexportados p/ compatibilidade
+from .factors import (THETA_ALT, _norm, CITY_ALT, TEAM_HOME_ALT, MX_CITIES,
+                      venue_alt, team_alt, gd_alt, confederation_of, seed_team_altitudes,
+                      load_elevations)
 
 
 def gate_altitude(conn, versao: str = "baseline-v0.1", theta: float = THETA_ALT,
@@ -87,24 +51,12 @@ def gate_altitude(conn, versao: str = "baseline-v0.1", theta: float = THETA_ALT,
     return {"n_alt": len(deltas), **g}
 
 
-# Sedes de altitude da CONCACAF (México); o restante de CITY_ALT é CONMEBOL.
-MX_CITIES = {"mexico city", "ciudad de mexico", "toluca", "puebla", "guadalajara", "zapopan"}
-
-
-def confederation_of(city) -> Optional[str]:
-    """'CONCACAF' / 'CONMEBOL' / None (sem altitude) p/ a cidade-sede."""
-    if venue_alt(city) <= 0:
-        return None
-    return "CONCACAF" if _norm(city) in MX_CITIES else "CONMEBOL"
-
-
 def gate_by_confederation(conn, theta: float = THETA_ALT, B: int = 10000, seed: int = 12345) -> dict:
     """Portão da altitude SEPARADO por confederação — revisa se θ deveria diferir (audit).
 
     Achado no DB local: θ=0,5 sustenta nas DUAS. CONMEBOL ΔBrier ~+0,066 IC[+0,035,+0,096];
     CONCACAF ~+0,023 IC[+0,001,+0,045] (mais fraco, porém positivo; θ ótimo ≈0,5 em ambas).
-    Ou seja, a força do México em casa é REAL — a superestimação do bracket era o vazamento
-    da altitude no mata-mata (D-48, corrigido), não o θ do grupo. Mantém θ único = 0,5.
+    Mantém θ único = 0,5.
     """
     rows = conn.execute(
         """SELECT mf.dr_adj dr, mf.sigma_dr sg, m.home_score hs, m.away_score a,
@@ -135,8 +87,21 @@ def main(argv=None) -> int:
     p.add_argument("--db", default=str(DEFAULT_DB))
     p.add_argument("--theta", type=float, default=THETA_ALT)
     p.add_argument("--by-confed", action="store_true", help="portão separado por confederação (CONMEBOL vs CONCACAF)")
+    p.add_argument("--seed-db", action="store_true", help="popula teams.home_altitude_m (N-D) e sai")
+    p.add_argument("--load-elevations", default=None, metavar="CSV",
+                   help="ingere elevações de um CSV (type,name,elevation_m) -> venues + teams (#7b) e sai")
     args = p.parse_args(argv)
     conn = db.connect(args.db)
+    if args.load_elevations:
+        r = load_elevations(conn, args.load_elevations)
+        conn.close()
+        print(f"elevações ingeridas: {r['venues']} sedes (venues) · {r['teams']} seleções (home_altitude_m).")
+        return 0
+    if args.seed_db:
+        n = seed_team_altitudes(conn)
+        conn.close()
+        print(f"teams.home_altitude_m populado p/ {n} seleções (a partir de TEAM_HOME_ALT).")
+        return 0
     if args.by_confed:
         res = gate_by_confederation(conn, theta=args.theta)
         conn.close()

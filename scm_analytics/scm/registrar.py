@@ -30,6 +30,7 @@ from .backtest_harness import brier, outcome_of, UNIFORM
 
 DEFAULT_REG = Path(__file__).resolve().parent.parent / "dados" / "registro-auto.csv"
 DEFAULT_DESF = Path(__file__).resolve().parent.parent / "dados" / "desfalques.json"
+DEFAULT_FIXTURES = Path(__file__).resolve().parent.parent / "dados" / "fixtures.json"
 FIELDS = ["ts_registro", "data_jogo", "home", "away", "versao_modelo", "hash_inputs",
           "mando", "city", "p_v", "p_e", "p_d", "lambda_a", "lambda_b",
           "p_over25", "p_btts", "conf", "resultado", "gols_home", "gols_away", "brier"]
@@ -132,6 +133,28 @@ def report(path=DEFAULT_REG, versao=None) -> dict:
             "brier_uniforme": uni, "ganho_vs_uniforme": uni - sum(briers) / n}
 
 
+def dashboard_data(conn, path=DEFAULT_REG) -> dict:
+    """Dados do painel prospectivo (D-66): resumo (Brier acumulado) + jogos (previsão do modelo
+    vs RESULTADO vs MERCADO). Reusa `report` e `odds.market_read`. Só leitura; sem rede."""
+    from .odds import market_read
+    games = []
+    for x in _read(path):
+        try:
+            mk = market_read(conn, x["home"], x["away"], x["data_jogo"])
+        except Exception:
+            mk = None
+        games.append({
+            "data_jogo": x.get("data_jogo", ""), "home": x.get("home", ""), "away": x.get("away", ""),
+            "p_v": float(x["p_v"]), "p_e": float(x["p_e"]), "p_d": float(x["p_d"]),
+            "conf": x.get("conf", ""), "versao": x.get("versao_modelo", ""),
+            "resultado": x.get("resultado", ""), "gols_home": x.get("gols_home", ""),
+            "gols_away": x.get("gols_away", ""), "brier": x.get("brier", ""),
+            "mercado": ({"p_v": mk["p_v"], "p_e": mk["p_e"], "p_d": mk["p_d"]} if mk else None),
+        })
+    games.sort(key=lambda g: g["data_jogo"])
+    return {"summary": report(path), "games": games, "model": MODEL_VERSION}
+
+
 def register_batch(conn, fixtures, path=DEFAULT_REG) -> dict:
     """Registra uma LISTA de confrontos da rodada. fixtures: [{home,away,date,city?,mando?}].
 
@@ -191,7 +214,8 @@ def main(argv=None) -> int:
     rp.add_argument("--reg", default=str(DEFAULT_REG))
     rp.add_argument("--versao", default=None)
     pb = sub.add_parser("register-batch", help="registra uma lista de confrontos (JSON da rodada)")
-    pb.add_argument("fixtures", help='JSON: [{"home":..,"away":..,"date":..,"city":..,"mando":..}]')
+    pb.add_argument("fixtures", nargs="?", default=str(DEFAULT_FIXTURES),
+                    help='JSON da rodada (default: dados/fixtures.json): [{"home","away","date","city?","mando?"}]')
     pb.add_argument("--db", default=str(DEFAULT_DB))
     pb.add_argument("--reg", default=str(DEFAULT_REG))
     pf = sub.add_parser("settle-from-db", help="preenche resultados pelo snapshot (martj42)")
@@ -228,6 +252,9 @@ def main(argv=None) -> int:
     if args.cmd == "register-batch":
         if not Path(args.db).exists():
             print(f"[erro] {args.db} não existe."); return 1
+        if not Path(args.fixtures).exists():
+            print(f"[erro] arquivo da rodada não encontrado: {args.fixtures}\n"
+                  f"       copie dados/fixtures.json.example p/ dados/fixtures.json e preencha."); return 1
         import json as _json
         fixtures = _json.loads(Path(args.fixtures).read_text(encoding="utf-8"))
         conn = db.connect(args.db); r = register_batch(conn, fixtures, args.reg); conn.close()

@@ -31,7 +31,7 @@ import numpy as np
 from . import db
 from .ingest import DEFAULT_DB
 from .predictor import PredictParams, lambdas, MODEL_VERSION
-from .altitude import gd_alt
+from .factors import gd_alt
 
 DEFAULT_CONFIG = Path(__file__).resolve().parent.parent / "dados" / "copa2026.json"
 ADVANCE_PER_GROUP = 2          # 2 melhores de cada grupo
@@ -96,6 +96,19 @@ def get_elos(conn) -> dict:
         "SELECT t.name, r.elo FROM ratings_current r JOIN teams t USING (team_id)")}
 
 
+def get_sigmas(conn) -> dict:
+    """{nome: sigma_r} do ratings_current (incerteza do Elo p/ propagar no torneio, P4)."""
+    return {r["name"]: r["sigma_r"] for r in conn.execute(
+        "SELECT t.name, r.sigma_r FROM ratings_current r JOIN teams t USING (team_id)")}
+
+
+def _pair_sigma(a, b, sig):
+    """σ_dr do confronto = sqrt(σ_R_a² + σ_R_b²) (RSS; banda de mando omitida na sim)."""
+    if not sig:
+        return 0.0
+    return (sig.get(a, 0.0) ** 2 + sig.get(b, 0.0) ** 2) ** 0.5
+
+
 def played_results(conn) -> dict:
     """{(home,away): (hs,as)} dos jogos de grupo da Copa 2026 já disputados (martj42)."""
     out = {}
@@ -141,7 +154,7 @@ def build_lambda_table(teams, elos, p, hosts=None) -> dict:
     return tab
 
 
-def _sim_group(teams, tab, played, rng, p=None, alt_venues=None):
+def _sim_group(teams, tab, played, rng, p=None, alt_venues=None, sig=None):
     """Roda 1 grupo. Retorna lista ordenada [(team, pts, gd, gf)] do 1º ao 4º.
 
     N2 (D-37): se `alt_venues` traz a sede de altitude de um anfitrião (ex.: {"Mexico":
@@ -164,10 +177,13 @@ def _sim_group(teams, tab, played, rng, p=None, alt_venues=None):
             if alt_venues:
                 city = (alt_venues.get(f"{a}|{b}") or alt_venues.get(f"{b}|{a}")
                         or alt_venues.get(a) or alt_venues.get(b))
-            if city and p is not None:
-                la, lb = lambdas(tab[(a, b)][0], p, gd_alt=gd_alt(city, a, b))
-            else:
-                _, la, lb = tab[(a, b)]
+            # P4: propaga a incerteza do rating — amostra dr ~ N(dr, σ_dr) ANTES da λ.
+            # Sem isto a sim trata o Elo como exato e superestima favoritos (Jensen).
+            dr0 = tab[(a, b)][0]
+            sd = _pair_sigma(a, b, sig)
+            dr_s = rng.normal(dr0, sd) if sd > 0 else dr0
+            _ga = gd_alt(city, a, b) if (city and p is not None) else 0.0
+            la, lb = lambdas(dr_s, p if p is not None else PredictParams(), gd_alt=_ga)
             xa, xb = int(rng.poisson(la)), int(rng.poisson(lb))
         results[(a, b)] = (xa, xb)
         gf[a] += xa; ga[a] += xb; gf[b] += xb; ga[b] += xa
@@ -188,22 +204,27 @@ def _sim_group(teams, tab, played, rng, p=None, alt_venues=None):
     return [(t, pts[t], gf[t] - ga[t], gf[t]) for t in rank]
 
 
-def _knockout_winner(a, b, tab, rng, eps):
-    _, la, lb = tab[(a, b)]
+def _knockout_winner(a, b, tab, rng, eps, p=None, sig=None):
+    dr0 = tab[(a, b)][0]
+    sd = _pair_sigma(a, b, sig)
+    dr_s = rng.normal(dr0, sd) if sd > 0 else dr0        # P4: propaga σ no mata-mata
+    if p is not None:
+        la, lb = lambdas(dr_s, p)
+    else:
+        _, la, lb = tab[(a, b)]
     xa, xb = int(rng.poisson(la)), int(rng.poisson(lb))
     if xa > xb: return a
     if xb > xa: return b
-    dr = tab[(a, b)][0]
-    share_a = 0.5 + eps * ((dr > 0) - (dr < 0))     # contrato §3.2
+    share_a = 0.5 + eps * ((dr_s > 0) - (dr_s < 0))     # contrato §3.2
     return a if rng.random() < share_a else b
 
 
-def simulate_once(groups, tab, played, rng, p, alt_venues=None):
+def simulate_once(groups, tab, played, rng, p, alt_venues=None, sig=None):
     """1 simulação completa pelo CHAVEAMENTO OFICIAL. Retorna (champion, finalists, semis, advancers)."""
     firsts, seconds, thirds = {}, {}, []
     advancers = set()
     for g, teams in groups.items():
-        rank = _sim_group(teams, tab, played, rng, p, alt_venues)
+        rank = _sim_group(teams, tab, played, rng, p, alt_venues, sig)
         firsts[g] = rank[0][0]; seconds[g] = rank[1][0]
         thirds.append((g,) + rank[2])              # (grupo, team, pts, gd, gf)
         advancers.add(firsts[g]); advancers.add(seconds[g])
@@ -221,9 +242,9 @@ def simulate_once(groups, tab, played, rng, p, alt_venues=None):
 
     win = {}
     for mid, a, b in R32:
-        win[mid] = _knockout_winner(team_of(a), team_of(b), tab, rng, p.eps_ko)
+        win[mid] = _knockout_winner(team_of(a), team_of(b), tab, rng, p.eps_ko, p, sig)
     for mid, a, b in LATER:
-        win[mid] = _knockout_winner(win[a], win[b], tab, rng, p.eps_ko)
+        win[mid] = _knockout_winner(win[a], win[b], tab, rng, p.eps_ko, p, sig)
     semis = {win[97], win[98], win[99], win[100]}
     finalists = {win[101], win[102]}
     return win[104], finalists, semis, advancers
@@ -232,6 +253,7 @@ def simulate_once(groups, tab, played, rng, p, alt_venues=None):
 def run(conn, config_path=DEFAULT_CONFIG, n_sims=20000, seed=12345):
     cfg, groups = load_config(config_path)
     elos = get_elos(conn)
+    sig = get_sigmas(conn)            # P4: incerteza do rating p/ propagar no torneio
     played = played_results(conn)
     p = PredictParams()
     teams = [t for g in groups.values() for t in g]
@@ -243,7 +265,7 @@ def run(conn, config_path=DEFAULT_CONFIG, n_sims=20000, seed=12345):
     semi = {t: 0 for t in teams}
     adv = {t: 0 for t in teams}
     for _ in range(n_sims):
-        c, f, s, a = simulate_once(groups, tab, played, rng, p, alt_venues)
+        c, f, s, a = simulate_once(groups, tab, played, rng, p, alt_venues, sig)
         champ[c] += 1
         for t in f: fin[t] += 1
         for t in s: semi[t] += 1

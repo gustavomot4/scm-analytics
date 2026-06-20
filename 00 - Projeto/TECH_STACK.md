@@ -22,7 +22,7 @@ Tudo **gratuito, local, auditável**. Sem APIs pagas, sem hospedagem, sem servid
 | Testes | **pytest** | padrão de fato; abriga o **teste anti look-ahead** (crítico, [[camada2-baseline-plano-v1]] M3) |
 | Visualização | **Matplotlib** | gera reliability diagrams e cobertura de banda, gratuito |
 | Interface web | **Flask** | app local mínimo p/ a interface gráfica (`scm.web`); sem servidor externo |
-| Ambiente | **venv + `requirements.txt` (versões pinadas)** | reprodutível sem o overhead de Docker |
+| Ambiente | **venv + `requirements.txt` (faixas com teto de major; lock exato via `pip freeze`)** | reprodutível sem o overhead de Docker (P-J/P-K: o texto antigo dizia "pinadas"; a política real é faixa `>=x,<major+1`) |
 | Versionamento | **Git (local)** | histórico auditável; casa com o plugin [[Plugins recomendados|Obsidian Git]] |
 
 ## Não usar (e por quê)
