@@ -1,0 +1,7 @@
+[
+  {"home": "Spain", "away": "Saudi Arabia", "date": "2026-06-21"},
+  {"home": "Uruguay", "away": "Cape Verde", "date": "2026-06-21"},
+  {"home": "Cape Verde", "away": "Saudi Arabia", "date": "2026-06-26"},
+  {"home": "Spain", "away": "Uruguay", "date": "2026-06-26"},
+  {"home": "Mexico", "away": "South Korea", "date": "2026-06-20", "city": "Mexico City", "mando": 40}
+]
