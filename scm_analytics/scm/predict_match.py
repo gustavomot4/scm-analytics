@@ -170,6 +170,7 @@ def predict_match(conn, home, away, mando=0.0, city=None, sigma_ajuste=None, usa
     mk = markets(pr["lambda_a"], pr["lambda_b"], PredictParams().max_goals)
     return {"home": a["name"], "away": b["name"], "elo_home": a["elo"], "elo_away": b["elo"],
             "sigma_home": a["sigma_r"], "sigma_away": b["sigma_r"], "dr": dr, "sigma_dr": sigma_dr,
+            "form_a": form_a, "form_b": form_b, "mando": mando,
             "gd_alt": ga, "dr_desf": dr_desf, "gd_desf": gd_desf, "mercado": mercado,
             "estilo_a": ea, "estilo_b": eb,
             "provisional": bool(a["provisional"] or b["provisional"]),

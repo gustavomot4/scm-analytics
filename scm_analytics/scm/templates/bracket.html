@@ -1,107 +1,135 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-br">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Chaveamento — Copa 2026</title>
+<title>SCM Analytics — Chaveamento da Copa 2026</title>
 <style>
-  :root{ --bg:#1b1033; --panel:#241544; --line:#3a2a5e; --txt:#ece8f5; --mut:#9b8fc0;
-         --win:#1f7a4d; --winbg:#143a28; --gold:#e6b94e; }
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif}
-  header{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;align-items:center;gap:12px}
-  h1{font-size:18px;margin:0;font-weight:600}
-  .sub{color:var(--mut);font-size:12px}
-  .champ{margin-left:auto;display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);
-         border-radius:10px;padding:6px 12px;font-weight:600}
-  .champ .star{color:var(--gold);font-size:18px}
-  .ctl{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--mut)}
-  .ctl input{width:64px;background:var(--panel);border:1px solid var(--line);color:var(--txt);border-radius:6px;padding:3px 6px}
-  .ctl button{background:var(--gold);border:0;color:#2a1b00;font-weight:600;border-radius:6px;padding:4px 10px;cursor:pointer}
-  main{display:flex;gap:16px;align-items:flex-start;padding:14px;flex-wrap:wrap}
-  .bracket{flex:1 1 720px;overflow-x:auto;display:flex;gap:8px;min-height:760px}
-  .col{display:flex;flex-direction:column;justify-content:space-around;min-width:96px;gap:6px}
-  .col h3{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);text-align:center;margin:0 0 4px;font-weight:600}
-  .m{background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden;font-size:12px}
-  .m.final{border:2px solid var(--gold)}
-  .row{display:flex;justify-content:space-between;gap:6px;padding:4px 7px;white-space:nowrap}
-  .row.w{background:var(--winbg);color:#dff5e8;font-weight:600}
-  .row .p{color:var(--mut);font-variant-numeric:tabular-nums}
-  .row.w .p{color:#7fe0a8}
-  .tbl{flex:0 0 300px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px}
-  .tbl h3{margin:0 0 8px;font-size:13px}
-  table{width:100%;border-collapse:collapse;font-size:12px}
-  th,td{text-align:right;padding:3px 5px;border-bottom:1px solid var(--line)}
+  :root{--bg:#fff;--panel:#f7f8fa;--text:#1c1f23;--muted:#6b7280;--border:#e5e7eb;--border-strong:#d2d6db;
+    --accent:#2563eb;--accent-weak:#eef3ff;--accent-strong:#1d57d6;--radius:8px}
+  *{box-sizing:border-box} html,body{margin:0}
+  body{background:var(--bg);color:var(--text);font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .tnum{font-variant-numeric:tabular-nums}
+  .app{display:flex;min-height:100vh}
+  .sidebar{width:210px;flex:none;background:var(--panel);border-right:1px solid var(--border);padding:16px 12px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+  .sb-brand{font-weight:600;font-size:15px;padding:4px 8px 16px;letter-spacing:-.01em}
+  .sb-brand span{display:block;color:var(--muted);font-weight:400;font-size:12px;margin-top:2px}
+  .sb-nav{display:flex;flex-direction:column;gap:2px}
+  .sb-nav a{display:block;padding:9px 11px;border-radius:6px;color:var(--text);text-decoration:none;font-size:14px}
+  .sb-nav a:hover{background:#eceff3}
+  .sb-nav a.active{background:var(--accent-weak);color:var(--accent);font-weight:500}
+  .sb-foot{margin-top:auto;color:var(--muted);font-size:11px;padding-top:12px;border-top:1px solid var(--border)}
+  .content{flex:1;min-width:0}
+  main{max-width:1180px;margin:0 auto;padding:24px 24px 44px}
+  h1{font-size:18px;font-weight:600;margin:0 0 4px;letter-spacing:-.01em}
+  .sub{color:var(--muted);margin:0 0 18px;font-size:13px}
+  .toolbar{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:18px}
+  .tabs{display:inline-flex;border:1px solid var(--border-strong);border-radius:8px;overflow:hidden}
+  .tabs button{height:34px;padding:0 16px;border:0;background:#fff;color:var(--text);font:inherit;cursor:pointer}
+  .tabs button.on{background:var(--accent);color:#fff;font-weight:500}
+  .ctl{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted)}
+  .ctl input{height:34px;width:80px;padding:0 10px;border:1px solid var(--border-strong);border-radius:6px;font:inherit}
+  .ctl button{height:34px;padding:0 14px;border:1px solid var(--border-strong);border-radius:6px;background:#fff;color:var(--text);font:inherit;cursor:pointer}
+  .ctl button:hover{background:var(--panel)}
+  .champ{margin-left:auto;display:flex;align-items:center;gap:8px;background:var(--accent-weak);color:var(--accent-strong);
+    border:1px solid #d7e2fb;border-radius:999px;padding:6px 16px;font-weight:600}
+  .scroll{overflow-x:auto;padding-bottom:8px}
+  .bracket{display:flex;gap:10px;min-width:1080px}
+  .col{display:flex;flex-direction:column;justify-content:space-around;flex:1;min-width:118px}
+  .col h3{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);text-align:center;margin:0 0 8px;font-weight:600}
+  .m{border:1px solid var(--border);border-radius:7px;overflow:hidden;margin:5px 0;background:#fff;box-shadow:0 1px 2px rgba(16,24,40,.03)}
+  .m.final{border:2px solid var(--accent)}
+  .row{display:flex;align-items:center;gap:8px;padding:6px 10px;font-size:13px;color:var(--muted)}
+  .row+.row{border-top:1px solid var(--border)}
+  .row .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .row .p{flex:none}
+  .row.w{background:var(--accent-weak);color:var(--accent-strong);font-weight:600}
+  .pview{max-width:760px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:right;padding:8px 10px;border-bottom:1px solid var(--border)}
   th:first-child,td:first-child{text-align:left}
-  th{color:var(--mut);font-weight:600}
-  td.t{font-weight:600}
-  .note{padding:0 16px 18px;color:var(--mut);font-size:12px;max-width:900px;line-height:1.6}
-  .err{padding:18px;color:#f3a3a3}
+  td:first-child{font-weight:500}
+  th{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;font-weight:500}
+  .barcell{position:relative} .barcell i{position:absolute;left:0;top:0;bottom:0;background:var(--accent-weak);z-index:0;border-radius:3px}
+  .barcell span{position:relative;z-index:1}
+  .note{color:var(--muted);font-size:12px;margin-top:18px;max-width:900px;line-height:1.6}
+  .err{color:#9b2c2c;padding:12px 0}
+  .hide{display:none}
+  @media(max-width:720px){.app{flex-direction:column}.sidebar{width:auto;height:auto;position:static;flex-direction:row;align-items:center;gap:8px;overflow-x:auto;padding:8px 12px}.sb-brand{padding:0 8px 0 4px;white-space:nowrap}.sb-brand span{display:none}.sb-nav{flex-direction:row}.sb-foot{display:none}}
 </style>
 </head>
 <body>
-<header>
-  <div>
-    <h1>Copa 2026 — chaveamento mais provável</h1>
-    <div class="sub">dos 16 avos à final · a % é a chance de avançar daquele confronto · modelo <span id="model">…</span></div>
+<div class="app">
+  <aside class="sidebar">
+    <div class="sb-brand">SCM Analytics<span>Copa 2026</span></div>
+    <nav class="sb-nav">
+      <a href="/">Prever confronto</a>
+      <a href="/simulacao">Simular Copa</a>
+      <a href="/bracket" class="active">Chaveamento</a>
+    </nav>
+    <div class="sb-foot"><div id="model"></div><div>Probabilidade, não certeza.</div></div>
+  </aside>
+  <div class="content">
+    <main>
+      <h1>Chaveamento mais provável</h1>
+      <p class="sub">Dos 16 avos à final. A % é a chance de avançar daquele confronto. Altitude entra só nos jogos de grupo; mata-mata é neutro.</p>
+      <div class="toolbar">
+        <div class="tabs">
+          <button id="tabBk" class="on" onclick="show('bk')">Chaveamento</button>
+          <button id="tabMc" onclick="show('mc')">Probabilidades</button>
+        </div>
+        <div class="ctl"><span>Simulações</span><input id="sims" type="text" value="5000" class="tnum"><button id="go">Recarregar</button></div>
+        <span class="champ" id="champ" style="display:none"></span>
+      </div>
+
+      <div id="viewBk">
+        <div class="scroll"><div class="bracket" id="bracket"><div class="sub">Carregando…</div></div></div>
+      </div>
+      <div id="viewMc" class="hide pview">
+        <table><thead><tr><th>Seleção</th><th>Título</th><th>Final</th><th>Semi</th><th>Passa 1ª fase</th></tr></thead>
+        <tbody id="mc"></tbody></table>
+      </div>
+
+      <div class="note" id="note"></div>
+    </main>
   </div>
-  <div class="ctl">sims <input id="sims" type="number" value="5000" min="200" max="50000" step="1000">
-    <button onclick="load()">recarregar</button></div>
-  <div class="champ"><span class="star">&#9733;</span><span>Campeão: <span id="champ">…</span></span></div>
-</header>
-
-<main>
-  <div class="bracket" id="bracket"></div>
-  <div class="tbl">
-    <h3>Probabilidades (Monte Carlo)</h3>
-    <table><thead><tr><th>seleção</th><th>título</th><th>final</th><th>semi</th><th>passa</th></tr></thead>
-    <tbody id="mc"></tbody></table>
-  </div>
-</main>
-
-<div class="note" id="note"></div>
-
+</div>
 <script>
-// Árvore oficial FIFA 2026 (mesma de simulate.py): colunas dos 16 avos -> final.
-const COLS = [
-  {t:"16 avos", m:[74,77,73,75,83,84,81,82]},
-  {t:"Oitavas", m:[89,90,93,94]},
-  {t:"Quartas", m:[97,98]},
-  {t:"Semi",    m:[101]},
-  {t:"Final",   m:[104]},
-  {t:"Semi",    m:[102]},
-  {t:"Quartas", m:[99,100]},
-  {t:"Oitavas", m:[91,92,95,96]},
-  {t:"16 avos", m:[76,78,79,80,86,88,85,87]},
-];
-function row(team, win, p){
-  return `<div class="row ${win?'w':''}"><span>${team||'—'}</span><span class="p">${win?Math.round(p*100)+'%':''}</span></div>`;
-}
-function card(mid, data){
-  const x = data.match[String(mid)];
-  if(!x) return `<div class="m"><div class="row">—</div><div class="row">—</div></div>`;
-  const fin = mid===104 ? ' final' : '';
-  return `<div class="m${fin}">${row(x.a, x.winner===x.a, x.p_adv)}${row(x.b, x.winner===x.b, x.p_adv)}</div>`;
-}
-async function load(){
-  const sims = document.getElementById('sims').value || 5000;
-  const bk = document.getElementById('bracket');
-  bk.innerHTML = '<div class="sub" style="padding:20px">calculando…</div>';
-  let d;
-  try{ d = await (await fetch('/api/bracket?sims='+sims)).json(); }
-  catch(e){ bk.innerHTML = '<div class="err">falha ao carregar a API.</div>'; return; }
-  if(d.erro){ bk.innerHTML = '<div class="err">'+d.erro+'</div>'; return; }
-  document.getElementById('model').textContent = d.model;
-  document.getElementById('champ').textContent = d.champion;
-  bk.innerHTML = COLS.map(c => '<div class="col"><h3>'+c.t+'</h3>'+c.m.map(mid=>card(mid,d)).join('')+'</div>').join('');
-  document.getElementById('mc').innerHTML = d.table.slice(0,16).map(r =>
-    `<tr><td class="t">${r.team}</td><td>${(r.p_champion*100).toFixed(1)}%</td><td>${(r.p_final*100).toFixed(0)}%</td><td>${(r.p_semi*100).toFixed(0)}%</td><td>${(r.p_advance*100).toFixed(0)}%</td></tr>`).join('');
-  const vice = d.finalists.find(t=>t!==d.champion);
-  document.getElementById('note').innerHTML =
-    `É <b>um</b> chaveamento (a "história"): a chance do bracket exato é ínfima. Os números rigorosos por seleção estão na tabela ao lado (Monte Carlo, ${d.n_sims} torneios). `+
-    `Vice previsto: ${vice} · 3º: ${d.third}. Insight, não previsão validada — probabilidade, nunca certeza.`;
-}
-load();
+  const $=id=>document.getElementById(id);
+  let DATA=null;
+  const COLS=[["16 avos",[74,77,73,75,83,84,81,82]],["Oitavas",[89,90,93,94]],["Quartas",[97,98]],["Semi",[101]],
+    ["Final",[104]],["Semi",[102]],["Quartas",[99,100]],["Oitavas",[91,92,95,96]],["16 avos",[76,78,79,80,86,88,85,87]]];
+  function show(v){
+    $('viewBk').classList.toggle('hide', v!=='bk');
+    $('viewMc').classList.toggle('hide', v!=='mc');
+    $('tabBk').classList.toggle('on', v==='bk');
+    $('tabMc').classList.toggle('on', v==='mc');
+  }
+  function row(t,win,p){return `<div class="row ${win?'w':''}"><span class="nm" title="${t||''}">${t||'—'}</span><span class="p tnum">${win?Math.round(p*100)+'%':''}</span></div>`;}
+  function card(mid,d){const x=d.match[String(mid)];if(!x)return'';const f=mid===104?' final':'';
+    return `<div class="m${f}">${row(x.a,x.winner===x.a,x.p_adv)}${row(x.b,x.winner===x.b,x.p_adv)}</div>`;}
+  async function load(){
+    $('go').disabled=true; $('go').textContent='…';
+    $('bracket').innerHTML='<div class="sub" style="padding:18px">Calculando…</div>';
+    let d;
+    try{ d=await (await fetch('/api/bracket?sims='+encodeURIComponent($('sims').value||5000))).json(); }
+    catch(e){ $('bracket').innerHTML='<div class="err">Falha ao carregar a API.</div>'; reset(); return; }
+    if(d.erro){ $('bracket').innerHTML='<div class="err">'+d.erro+'</div>'; reset(); return; }
+    DATA=d;
+    $('model').textContent='modelo '+d.model;
+    $('champ').style.display=''; $('champ').textContent='Campeão: '+d.champion;
+    $('bracket').innerHTML=COLS.map(c=>`<div class="col"><h3>${c[0]}</h3>${c[1].map(m=>card(m,d)).join('')}</div>`).join('');
+    const max=Math.max.apply(null,d.table.map(r=>r.p_champion))||1;
+    $('mc').innerHTML=d.table.map(r=>
+      `<tr><td>${r.team}</td><td class="tnum barcell"><i style="width:${(r.p_champion/max*100).toFixed(0)}%"></i><span>${(r.p_champion*100).toFixed(1)}%</span></td>`+
+      `<td class="tnum">${(r.p_final*100).toFixed(0)}%</td><td class="tnum">${(r.p_semi*100).toFixed(0)}%</td><td class="tnum">${(r.p_advance*100).toFixed(0)}%</td></tr>`).join('');
+    const vice=d.finalists.find(t=>t!==d.champion);
+    $('note').innerHTML=`É <b>um</b> chaveamento (a "história"): a chance do bracket exato é ínfima. Os números rigorosos por seleção estão na aba <b>Probabilidades</b> (Monte Carlo, ${d.n_sims.toLocaleString()} torneios). Vice previsto: ${vice} · 3º: ${d.third}.`;
+    reset();
+  }
+  function reset(){ $('go').disabled=false; $('go').textContent='Recarregar'; }
+  $('go').addEventListener('click',load);
+  load();
 </script>
 </body>
 </html>

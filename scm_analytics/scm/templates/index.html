@@ -88,13 +88,41 @@
   .koline.show{display:block}
   .koline b{font-weight:600}
   @media(max-width:560px){ .mkt-grid{grid-template-columns:1fr} }
+  .app{display:flex;min-height:100vh}
+  .sidebar{width:210px;flex:none;background:var(--panel);border-right:1px solid var(--border);padding:16px 12px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+  .sb-brand{font-weight:600;font-size:15px;padding:4px 8px 16px;letter-spacing:-.01em}
+  .sb-brand span{display:block;color:var(--muted);font-weight:400;font-size:12px;margin-top:2px}
+  .sb-nav{display:flex;flex-direction:column;gap:2px}
+  .sb-nav a{display:block;padding:9px 11px;border-radius:6px;color:var(--text);text-decoration:none;font-size:14px}
+  .sb-nav a:hover{background:#eceff3}
+  .sb-nav a.active{background:var(--accent-weak);color:var(--accent);font-weight:500}
+  .sb-foot{margin-top:auto;color:var(--muted);font-size:11px;padding-top:12px;border-top:1px solid var(--border)}
+  .content{flex:1;min-width:0}
+  @media(max-width:720px){.app{flex-direction:column}.sidebar{width:auto;height:auto;position:static;flex-direction:row;align-items:center;gap:8px;overflow-x:auto;padding:8px 12px}.sb-brand{padding:0 8px 0 4px;white-space:nowrap}.sb-brand span{display:none}.sb-nav{flex-direction:row}.sb-foot{display:none}}
+  .oddsrow{display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap;font-size:13px}
+  .oddsrow input{height:32px;width:80px;padding:0 9px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);font:inherit}
+  .oddsrow .lbl{color:var(--muted);font-weight:500}
+  .mktcmp{display:none;margin-top:12px;padding:10px 14px;border:1px solid var(--border);background:var(--panel);border-radius:var(--radius-sm);font-size:13px}
+  .mktcmp b{font-weight:600}
+  .explain{margin-top:14px;font-size:12.5px;color:var(--muted)}
+  .explain .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;align-items:center}
+  .explain .chip{background:var(--panel);border:1px solid var(--border);border-radius:999px;padding:3px 10px}
+  .explain .chip b{color:var(--text);font-weight:600}
+  .explain .eq{color:var(--accent);font-weight:600}
 </style>
 </head>
 <body>
-  <header>
-    <div class="brand">SCM Analytics<span>Previsão de partidas — Copa 2026</span></div>
-    <div style="display:flex;gap:16px;align-items:center"><a href="/simulacao" style="font-size:13px;color:var(--accent);text-decoration:none">Simular Copa →</a><div class="model" id="model"></div></div>
-  </header>
+  <div class="app">
+  <aside class="sidebar">
+    <div class="sb-brand">SCM Analytics<span>Copa 2026</span></div>
+    <nav class="sb-nav">
+      <a href="/" class="active">Prever confronto</a>
+      <a href="/simulacao">Simular Copa</a>
+      <a href="/bracket">Chaveamento</a>
+    </nav>
+    <div class="sb-foot"><div class="model" id="model"></div><div>Probabilidade, não certeza.</div></div>
+  </aside>
+  <div class="content">
   <main>
     <h1>Prever um confronto</h1>
     <p class="sub">Probabilidades a partir do Elo histórico e do modelo validado por backtest. Probabilidade, não certeza.</p>
@@ -126,6 +154,13 @@
       <datalist id="teams"></datalist>
     </form>
     <label class="ko-toggle"><input type="checkbox" id="ko"> Jogo eliminatório — mostrar probabilidade de <b>avançar</b> (empate → prorrogação/pênaltis)</label>
+    <div class="oddsrow">
+      <span class="lbl">Odds de mercado (opcional):</span>
+      <input type="text" id="oh" placeholder="casa" class="tnum" inputmode="decimal">
+      <input type="text" id="od" placeholder="empate" class="tnum" inputmode="decimal">
+      <input type="text" id="oa" placeholder="fora" class="tnum" inputmode="decimal">
+      <span class="hint">decimais (ex.: 2.10 · 3.30 · 3.60) — mistura 20% no 1X2 (contrato §3.8)</span>
+    </div>
     <div class="count" id="count"></div>
 
     <div class="error" id="error" role="alert"></div>
@@ -139,6 +174,8 @@
         <div class="bar" id="bar"></div>
         <div class="legend" id="legend"></div>
         <div class="band" id="band"></div>
+        <div class="mktcmp" id="mktcmp"></div>
+        <div class="explain" id="explain"></div>
         <div class="koline" id="koline"></div>
         <div class="stats" id="stats"></div>
         <div class="cols">
@@ -171,6 +208,8 @@
       <div class="footer">Probabilidade, não certeza — não é recomendação de aposta.</div>
     </section>
   </main>
+  </div>
+  </div>
 
 <script>
   const $ = id => document.getElementById(id);
@@ -197,6 +236,8 @@
     const q = new URLSearchParams({home:$('home').value, away:$('away').value});
     if(v.city) q.set('city', v.city);
     if(v.mando) q.set('mando', v.mando);
+    const oh=$('oh').value.trim(), od=$('od').value.trim(), oa=$('oa').value.trim();
+    if(oh && od && oa){ q.set('oh',oh); q.set('od',od); q.set('oa',oa); }
     try{
       const d = await (await fetch('/api/predict?' + q.toString())).json();
       if(d.erro){
@@ -216,6 +257,20 @@
     $('legend').innerHTML = [['v',d.home,d.p_v],['e','Empate',d.p_e],['l',d.away,d.p_d]]
       .map(([k,nm,x]) => `<div class="item"><span class="dot" style="background:${colorFor(k)}"></span><span class="pct tnum">${pct(x)}</span><span class="nm">${nm}</span></div>`).join('');
     $('band').textContent = 'Banda de P(' + d.home + '): ' + pct(d.band_lo) + ' – ' + pct(d.band_hi);
+    const mc = $('mktcmp');
+    if(d.mercado){ mc.style.display='';
+      mc.innerHTML = '<b>Mercado</b> (sem vig): ' + d.home + ' ' + pct(d.mercado.p_v) + ' &middot; Empate ' + pct(d.mercado.p_e)
+        + ' &middot; ' + d.away + ' ' + pct(d.mercado.p_d) + ' <span class="hint">— já misturado 20% no 1X2 acima</span>'; }
+    else { mc.style.display='none'; }
+    const sgn = x => (x>=0?'+':'');
+    const parts = ['<span class="chip">Elo <b>'+sgn(d.elo_diff)+d.elo_diff+'</b></span>'];
+    if(d.form_diff) parts.push('<span class="chip">Forma <b>'+sgn(d.form_diff)+d.form_diff+'</b></span>');
+    if(d.mando) parts.push('<span class="chip">Mando <b>'+sgn(d.mando)+d.mando+'</b></span>');
+    if(d.dr_desf) parts.push('<span class="chip">Desfalque <b>'+sgn(d.dr_desf)+d.dr_desf+'</b></span>');
+    const gd=[]; if(d.gd_alt) gd.push('altitude '+sgn(d.gd_alt)+d.gd_alt); if(d.gd_desf) gd.push('desfalque-ataque '+sgn(d.gd_desf)+d.gd_desf);
+    $('explain').innerHTML = 'Como o modelo chega no <b>dr</b> (' + sgn(d.dr)+d.dr + ' Elo): '
+      + '<span class="chips">' + parts.join('') + '<span class="chip eq">= ' + sgn(d.dr)+d.dr + '</span></span>'
+      + (gd.length ? '<div style="margin-top:6px">No saldo de gols (λ): ' + gd.join(', ') + ' gol.</div>' : '');
     $('stats').innerHTML = [
       ['λ ' + d.home, d.lambda_a.toFixed(2)],
       ['λ ' + d.away, d.lambda_b.toFixed(2)],

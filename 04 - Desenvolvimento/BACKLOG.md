@@ -84,6 +84,20 @@ data: 2026-06-15
 - [x] **Odds visíveis no CLI** (D-44): `predict_match --odds CASA EMPATE FORA` mostra mercado + 1X2 misturado.
 - [ ] **[P1] P-E** mando do anfitrião no portão · **[P2]** captura periódica de odds + comparador de mercado na UI · **[P2]** xG (StatsBomb) como prior.
 - [x] **Página web `/bracket` ENTREGUE** (D-46): `web.py` (`/bracket` + `/api/bracket`) + `templates/bracket.html` — chaveamento dos **16 avos** à final + tabela de % do Monte Carlo lado a lado. Recarregável, local.
+- [x] **Sidebar de navegação + tema unificado** (D-48): sidebar (Prever/Simular/Chaveamento) nas 3 telas; bracket no tema claro do app.
+- [x] **BUG corrigido — fator casa no mata-mata** (D-48, achado do usuário): altitude vazava p/ o KO no bracket e inflava o México (campeão). Agora KO neutro → campeão Argentina (alinha com o Monte Carlo).
+- [x] **Bracket redesenhado** (D-49): abas Chaveamento/Probabilidades (MC fora da lateral), cards largos sem sobreposição.
+- [x] **Odds na UI** (D-49): campos de odds na previsão + linha "Mercado (sem vig)"; `/api/predict` aceita odds.
+- [x] **Altitude θ por confederação revisada** (D-49): θ=0,5 sustenta nas duas (CONMEBOL +0,066; CONCACAF +0,023, IC>0) → mantém θ=0,5. A força do México em casa é real; o exagero era só o KO (D-48). `altitude --by-confed`.
+- [ ] **[P3]** Altitude no grupo: monitorar com mais dados de 2026; considerar θ por confederação só se a amostra recente pedir.
+
+## ✅ Round 3 — operacional + dados + UX (2026-06-19, D-50..D-52)
+- [x] **Registro prospectivo operacional** (D-51): `register-batch` (rodada via JSON) + `settle-from-db` (preenche pelo snapshot) + `register` auto-carrega desfalques/odds. Fluxo: registrar antes → `ingest --download` + settle depois → `report`.
+- [x] **Explicador de previsão** (D-52): UI mostra a decomposição do `dr` (Elo/forma/mando/desfalque) + saldo (altitude/desfalque-ataque).
+- [x] **Confronto direto no desempate** + **sede por jogo** no simulate (D-52).
+- [x] **xG esqueleto** (D-50): `team_xg` + `scm/xg.py` (candidato OFF; precisa do StatsBomb + portão).
+- [ ] **[P1] Próximos (dados, valor real):** preencher `desfalques.json` e capturar odds a cada rodada; gatear o xG quando houver a série StatsBomb.
+- [ ] **[P3]** Sede real por jogo da altitude: preencher `alt_venues` por confronto com o calendário oficial.
 - [x] **σ_dr encolher: TESTADO → não adotado** (D-47): cobertura de banda é não-estacionária (sobre-cobre antigo, sub-cobre recente); nenhuma escala única resolve. Mantém σ_dr.
 - [x] **Mando (P-E) estimado** (D-47): H empírico ≈110–120 Elo; motor usa 100 (ok). +40 do anfitrião 2026 segue juízo declarado.
 - [ ] **[P2]** Calibração de σ_dr **por época/estrato** (não-estacionária) — só se houver ganho de cobertura com IC.

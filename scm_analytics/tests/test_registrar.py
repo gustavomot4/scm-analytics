@@ -65,3 +65,23 @@ def test_register_unknown_team_returns_error():
         if os.path.exists(path):
             os.remove(path)
         c.close()
+
+
+def test_register_batch_and_settle_from_db():
+    c = _conn(); path = tempfile.mktemp(suffix=".csv")
+    try:
+        real = c.execute("""SELECT m.date d, th.name h, ta.name a FROM matches m
+                            JOIN teams th ON th.team_id=m.home_team_id
+                            JOIN teams ta ON ta.team_id=m.away_team_id
+                            WHERE th.name='Brazil' AND ta.name='Bolivia' LIMIT 1""").fetchone()
+        fixtures = [{"home": real["h"], "away": real["a"], "date": real["d"]},     # já disputado
+                    {"home": "Argentina", "away": "Brazil", "date": "2031-01-01"}]  # futuro
+        rb = R.register_batch(c, fixtures, path=path)
+        assert rb["registrados"] == 2
+        assert R.register_batch(c, fixtures, path=path)["ja_existiam"] == 2   # idempotente
+        sd = R.settle_from_db(c, path=path)
+        assert sd["preenchidos"] == 1 and sd["abertas_restantes"] == 1       # só o disputado fecha
+    finally:
+        if os.path.exists(path):
+            os.remove(path)
+        c.close()

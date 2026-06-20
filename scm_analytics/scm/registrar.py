@@ -29,6 +29,7 @@ from .predictor import MODEL_VERSION
 from .backtest_harness import brier, outcome_of, UNIFORM
 
 DEFAULT_REG = Path(__file__).resolve().parent.parent / "dados" / "registro-auto.csv"
+DEFAULT_DESF = Path(__file__).resolve().parent.parent / "dados" / "desfalques.json"
 FIELDS = ["ts_registro", "data_jogo", "home", "away", "versao_modelo", "hash_inputs",
           "mando", "city", "p_v", "p_e", "p_d", "lambda_a", "lambda_b",
           "p_over25", "p_btts", "conf", "resultado", "gols_home", "gols_away", "brier"]
@@ -64,8 +65,18 @@ def _key(home, away, data_jogo):
 
 
 def register(conn, home, away, data_jogo, mando=0.0, city=None, path=DEFAULT_REG) -> dict:
-    """Grava a previsão pré-jogo (imutável). Recusa duplicar (mesmo jogo+versão)."""
-    r = predict_match(conn, home, away, mando=mando, city=city)
+    """Grava a previsão pré-jogo (imutável). Recusa duplicar (mesmo jogo+versão).
+
+    Auto-carrega, se existirem: desfalques de `dados/desfalques.json` (chave date|home|away)
+    e odds do `odds_hist` (gravadas via `scm.odds`) — assim a rodada usa todos os dados
+    disponíveis sem passagem manual. Sem esses dados, prevê só com Elo/forma/altitude/mando.
+    """
+    from .desfalques import load_for_match
+    from .odds import market_read
+    des = load_for_match(DEFAULT_DESF, home, away, data_jogo) or None
+    mk = market_read(conn, home, away, data_jogo)
+    odds = (1.0 / mk["p_v"], 1.0 / mk["p_e"], 1.0 / mk["p_d"]) if mk else None   # prob -> pseudo-odds
+    r = predict_match(conn, home, away, mando=mando, city=city, desfalques=des, odds=odds)
     if r.get("erro"):
         return r
     rows = _read(path)
@@ -121,6 +132,46 @@ def report(path=DEFAULT_REG, versao=None) -> dict:
             "brier_uniforme": uni, "ganho_vs_uniforme": uni - sum(briers) / n}
 
 
+def register_batch(conn, fixtures, path=DEFAULT_REG) -> dict:
+    """Registra uma LISTA de confrontos da rodada. fixtures: [{home,away,date,city?,mando?}].
+
+    Idempotente (D-07): jogos já registrados são pulados, não duplicados.
+    """
+    ok = skip = err = 0
+    for f in fixtures:
+        r = register(conn, f["home"], f["away"], f["date"],
+                     mando=float(f.get("mando", 0) or 0), city=f.get("city"), path=path)
+        if r.get("erro") == "já registrado (imutável)":
+            skip += 1
+        elif r.get("erro"):
+            err += 1
+        else:
+            ok += 1
+    return {"registrados": ok, "ja_existiam": skip, "erros": err}
+
+
+def settle_from_db(conn, path=DEFAULT_REG) -> dict:
+    """Preenche o resultado das previsões em aberto cujo jogo JÁ tem placar no snapshot (martj42).
+
+    Automatiza o "preencher depois": re-rode o `ingest --download` antes (na sua máquina) e
+    chame isto — toda previsão registrada cujo confronto saiu vira resultado + Brier.
+    """
+    pend = [x for x in _read(path) if not x.get("resultado")]
+    n = 0
+    for x in pend:
+        row = conn.execute(
+            """SELECT m.home_score hs, m.away_score s FROM matches m
+               JOIN teams th ON th.team_id = m.home_team_id
+               JOIN teams ta ON ta.team_id = m.away_team_id
+               WHERE m.date = ? AND lower(th.name) = lower(?) AND lower(ta.name) = lower(?)
+                 AND m.home_score IS NOT NULL""",
+            (x["data_jogo"], x["home"], x["away"])).fetchone()
+        if row:
+            settle(x["home"], x["away"], x["data_jogo"], row["hs"], row["s"], path)
+            n += 1
+    return {"preenchidos": n, "abertas_restantes": len(pend) - n}
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Registro prospectivo de previsões (P-G).")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -139,6 +190,13 @@ def main(argv=None) -> int:
     rp = sub.add_parser("report", help="Brier prospectivo acumulado")
     rp.add_argument("--reg", default=str(DEFAULT_REG))
     rp.add_argument("--versao", default=None)
+    pb = sub.add_parser("register-batch", help="registra uma lista de confrontos (JSON da rodada)")
+    pb.add_argument("fixtures", help='JSON: [{"home":..,"away":..,"date":..,"city":..,"mando":..}]')
+    pb.add_argument("--db", default=str(DEFAULT_DB))
+    pb.add_argument("--reg", default=str(DEFAULT_REG))
+    pf = sub.add_parser("settle-from-db", help="preenche resultados pelo snapshot (martj42)")
+    pf.add_argument("--db", default=str(DEFAULT_DB))
+    pf.add_argument("--reg", default=str(DEFAULT_REG))
     args = ap.parse_args(argv)
 
     if args.cmd == "register":
@@ -166,6 +224,20 @@ def main(argv=None) -> int:
         print(f"  Brier prospectivo: {r['brier']:.4f}   (uniforme {r['brier_uniforme']:.4f})")
         print(f"  ganho vs uniforme: {r['ganho_vs_uniforme']:+.4f}")
         print("  — probabilidade, não certeza; não é recomendação de aposta.\n")
+        return 0
+    if args.cmd == "register-batch":
+        if not Path(args.db).exists():
+            print(f"[erro] {args.db} não existe."); return 1
+        import json as _json
+        fixtures = _json.loads(Path(args.fixtures).read_text(encoding="utf-8"))
+        conn = db.connect(args.db); r = register_batch(conn, fixtures, args.reg); conn.close()
+        print(f"lote: {r['registrados']} registrados · {r['ja_existiam']} já existiam · {r['erros']} erros -> {args.reg}")
+        return 0
+    if args.cmd == "settle-from-db":
+        if not Path(args.db).exists():
+            print(f"[erro] {args.db} não existe."); return 1
+        conn = db.connect(args.db); r = settle_from_db(conn, args.reg); conn.close()
+        print(f"preenchidos {r['preenchidos']} resultado(s) pelo snapshot · {r['abertas_restantes']} ainda em aberto.")
         return 0
     return 1
 

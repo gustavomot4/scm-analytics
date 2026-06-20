@@ -87,12 +87,66 @@ def gate_altitude(conn, versao: str = "baseline-v0.1", theta: float = THETA_ALT,
     return {"n_alt": len(deltas), **g}
 
 
+# Sedes de altitude da CONCACAF (México); o restante de CITY_ALT é CONMEBOL.
+MX_CITIES = {"mexico city", "ciudad de mexico", "toluca", "puebla", "guadalajara", "zapopan"}
+
+
+def confederation_of(city) -> Optional[str]:
+    """'CONCACAF' / 'CONMEBOL' / None (sem altitude) p/ a cidade-sede."""
+    if venue_alt(city) <= 0:
+        return None
+    return "CONCACAF" if _norm(city) in MX_CITIES else "CONMEBOL"
+
+
+def gate_by_confederation(conn, theta: float = THETA_ALT, B: int = 10000, seed: int = 12345) -> dict:
+    """Portão da altitude SEPARADO por confederação — revisa se θ deveria diferir (audit).
+
+    Achado no DB local: θ=0,5 sustenta nas DUAS. CONMEBOL ΔBrier ~+0,066 IC[+0,035,+0,096];
+    CONCACAF ~+0,023 IC[+0,001,+0,045] (mais fraco, porém positivo; θ ótimo ≈0,5 em ambas).
+    Ou seja, a força do México em casa é REAL — a superestimação do bracket era o vazamento
+    da altitude no mata-mata (D-48, corrigido), não o θ do grupo. Mantém θ único = 0,5.
+    """
+    rows = conn.execute(
+        """SELECT mf.dr_adj dr, mf.sigma_dr sg, m.home_score hs, m.away_score a,
+                  m.city city, th.name home, ta.name away
+           FROM match_features mf JOIN matches m USING (match_id)
+           JOIN teams th ON th.team_id = m.home_team_id
+           JOIN teams ta ON ta.team_id = m.away_team_id
+           WHERE m.home_score IS NOT NULL"""
+    ).fetchall()
+    p = PredictParams()
+    by = {}
+    for r in rows:
+        conf = confederation_of(r["city"])
+        if not conf:
+            continue
+        ga = gd_alt(r["city"], r["home"], r["away"], theta)
+        if abs(ga) < 1e-9:
+            continue
+        o = outcome_of(r["hs"], r["a"])
+        b0 = brier(predict(r["dr"], r["sg"], p), o)
+        b1 = brier(predict(r["dr"], r["sg"], p, gd_alt=ga), o)
+        by.setdefault(conf, []).append(b0 - b1)
+    return {conf: {"n": len(d), **gate(d, B=B, seed=seed)} for conf, d in by.items()}
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description="Portão do termo de altitude (E1).")
     p.add_argument("--db", default=str(DEFAULT_DB))
     p.add_argument("--theta", type=float, default=THETA_ALT)
+    p.add_argument("--by-confed", action="store_true", help="portão separado por confederação (CONMEBOL vs CONCACAF)")
     args = p.parse_args(argv)
     conn = db.connect(args.db)
+    if args.by_confed:
+        res = gate_by_confederation(conn, theta=args.theta)
+        conn.close()
+        if not res:
+            print("nenhum jogo de altitude encontrado."); return 1
+        print(f"Portão da altitude por confederação (θ={args.theta}):")
+        for conf, g in sorted(res.items()):
+            print(f"  {conf}: n={g['n']}  ΔBrier {g['mean']:+.4f}  IC95 [{g['ic_lo']:+.4f}, {g['ic_hi']:+.4f}]"
+                  f"  -> {'mantém' if g['keep'] else 'NÃO sustenta'}")
+        return 0
     r = gate_altitude(conn, theta=args.theta)
     conn.close()
     if r["n_alt"] == 0:

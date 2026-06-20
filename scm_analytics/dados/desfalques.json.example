@@ -1,0 +1,11 @@
+{
+  "_formato": "Camada 3 (D-41): copie para dados/desfalques.json e preencha. Chave = 'YYYY-MM-DD|Mandante|Visitante' (nomes padrão martj42, inglês). setor: ataque|defesa|goleiro|meio. tier: chave|importante|rodizio. O registrar (scm.registrar) e o predict_match aplicam automaticamente.",
+  "2026-06-20|Mexico|South Korea": {
+    "home": [{"setor": "ataque", "tier": "chave"}],
+    "away": [{"setor": "defesa", "tier": "importante"}, {"setor": "goleiro", "tier": "rodizio"}]
+  },
+  "2026-06-21|Spain|Saudi Arabia": {
+    "home": [],
+    "away": [{"setor": "ataque", "tier": "importante"}]
+  }
+}

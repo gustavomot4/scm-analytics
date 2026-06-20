@@ -21,8 +21,29 @@
  .barcell{position:relative} .barcell i{position:absolute;left:0;top:0;bottom:0;background:var(--accent-weak);z-index:0}
  .barcell span{position:relative;z-index:1} .foot{color:var(--muted);font-size:12px;margin-top:16px}
  .meta{color:var(--muted);font-size:12px;margin-top:8px}
+ .app{display:flex;min-height:100vh}
+ .sidebar{width:210px;flex:none;background:var(--panel);border-right:1px solid var(--border);padding:16px 12px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+ .sb-brand{font-weight:600;font-size:15px;padding:4px 8px 16px;letter-spacing:-.01em}
+ .sb-brand span{display:block;color:var(--muted);font-weight:400;font-size:12px;margin-top:2px}
+ .sb-nav{display:flex;flex-direction:column;gap:2px}
+ .sb-nav a{display:block;padding:9px 11px;border-radius:6px;color:var(--text);text-decoration:none;font-size:14px}
+ .sb-nav a:hover{background:#eceff3}
+ .sb-nav a.active{background:var(--accent-weak);color:var(--accent);font-weight:500}
+ .sb-foot{margin-top:auto;color:var(--muted);font-size:11px;padding-top:12px;border-top:1px solid var(--border)}
+ .content{flex:1;min-width:0}
+ @media(max-width:720px){.app{flex-direction:column}.sidebar{width:auto;height:auto;position:static;flex-direction:row;align-items:center;gap:8px;overflow-x:auto;padding:8px 12px}.sb-brand{padding:0 8px 0 4px;white-space:nowrap}.sb-brand span{display:none}.sb-nav{flex-direction:row}.sb-foot{display:none}}
 </style></head><body>
-<header><div class="brand">SCM Analytics<span>Simulação — Copa 2026</span></div><div><a href="/">← Prever um jogo</a></div></header>
+<div class="app">
+<aside class="sidebar">
+  <div class="sb-brand">SCM Analytics<span>Copa 2026</span></div>
+  <nav class="sb-nav">
+    <a href="/">Prever confronto</a>
+    <a href="/simulacao" class="active">Simular Copa</a>
+    <a href="/bracket">Chaveamento</a>
+  </nav>
+  <div class="sb-foot"><div id="model"></div><div>Probabilidade, não certeza.</div></div>
+</aside>
+<div class="content">
 <main>
  <h1>Quem tem mais chance de ser campeão?</h1>
  <p class="sub">Monte Carlo do torneio a partir do Elo e do modelo. Insight, não previsão validada — probabilidade, não certeza.</p>
@@ -37,6 +58,7 @@
  </tr></thead><tbody id="rows"></tbody></table>
  <div class="foot">Empates do mata-mata resolvidos pelo termo do contrato (§3.2, ε=0,03). Chaveamento por sorteio aleatório (não modela a tabela posicional exata dos terceiros). Jogos já disputados são travados.</div>
 </main>
+</div></div>
 <script>
  const $=id=>document.getElementById(id);
  async function sim(){
@@ -57,4 +79,5 @@
    finally{ $('go').disabled=false; $('go').textContent='Simular torneio'; }
  }
  $('go').addEventListener('click',sim);
+ fetch('/api/teams').then(r=>r.json()).then(d=>{$('model').textContent='modelo '+d.model;}).catch(()=>{});
 </script></body></html>

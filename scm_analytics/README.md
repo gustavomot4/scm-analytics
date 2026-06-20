@@ -25,6 +25,7 @@ scm_analytics/
 │   ├── calibrate_1x2.py  # [P-C] candidato recalibração 1X2 — REJEITADO (OFF)
 │   ├── sigma_glicko.py   # [P-B] candidato σ Glicko (RD varia) — portão de banda: não adotado (OFF)
 │   ├── odds.py           # [P-H] esqueleto de mercado: odds→prob de-vig + 3ª perna do ensemble (0.20)
+│   ├── xg.py             # [D-50] esqueleto xG (StatsBomb): team_xg + fator de estilo (candidato OFF)
 │   ├── web.py            # interface web local (Flask)
 │   └── templates/index.html   # UI (design de produto)
 ├── tests/                # pytest (sem rede; fixtures) — 18 arquivos de teste

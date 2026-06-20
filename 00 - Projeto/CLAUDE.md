@@ -126,3 +126,10 @@ Implementadas mais correções de [[Auditoria tecnica completa (2026-06-19)]], *
 - **σ_dr encolher** (D-47): testado no portão de banda → **não adotado** (cobertura não-estacionária: sobre-cobre antigo, sub-cobre recente). Mantém σ_dr.
 - **Mando (P-E)** (D-47): H empírico ≈110–120 Elo; motor usa 100 (ok). +40 do anfitrião 2026 = juízo declarado.
 - **Padrão confirmado:** Dixon-Coles, recalibração, σ-Glicko e σ_dr-scaling **todos barrados pelo portão**. O núcleo Elo→Poisson está no **teto** com os dados atuais — ganho real vem de **dados** (desfalques/odds/xG) e de **uso** (registro prospectivo a cada rodada). Registro prospectivo é operacional: registre antes do jogo, preencha depois.
+
+## ▶ Atualização 2026-06-19 (d) — operacional + dados + UX (D-50..D-52)
+- **Registro a cada rodada** (D-51): `python -m scm.registrar register-batch rodada.json` → após os jogos, `python -m scm.ingest --download` + `python -m scm.registrar settle-from-db` + `report`. `register` auto-carrega `dados/desfalques.json` e odds do `odds_hist`.
+- **Explicador** (D-52): a tela de previsão decompõe o `dr` (Elo/forma/mando/desfalque) + saldo (altitude/desfalque-ataque).
+- **Simulate** (D-52): desempate de grupo por **confronto direto** (regra FIFA) antes do sorteio; `alt_venues` aceita sede por jogo (`"A|B": cidade`).
+- **xG** (D-50): `team_xg` + `scm/xg.py` — esqueleto OFF (precisa do StatsBomb + portão).
+- **Fechamento honesto:** o núcleo está no teto (DC/recal/σ-Glicko/σ_dr todos barrados pelo portão). O valor agora é **operacional** (registrar a Copa) e **dados** (desfalques/odds/xG). Pare de adicionar fórmula; meça.

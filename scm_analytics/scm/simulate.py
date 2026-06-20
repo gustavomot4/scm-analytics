@@ -152,23 +152,39 @@ def _sim_group(teams, tab, played, rng, p=None, alt_venues=None):
     pts = {t: 0 for t in teams}
     gf = {t: 0 for t in teams}
     ga = {t: 0 for t in teams}
+    results = {}
     for a, b in combinations(teams, 2):
         if (a, b) in played:
             xa, xb = played[(a, b)]
         elif (b, a) in played:
             xb, xa = played[(b, a)]
         else:
-            if alt_venues and p is not None and (a in alt_venues or b in alt_venues):
-                city = alt_venues.get(a) or alt_venues.get(b)   # sede do anfitrião adaptado
+            # sede do jogo: específica do confronto (alt_venues["A|B"]) ou a do anfitrião adaptado
+            city = None
+            if alt_venues:
+                city = (alt_venues.get(f"{a}|{b}") or alt_venues.get(f"{b}|{a}")
+                        or alt_venues.get(a) or alt_venues.get(b))
+            if city and p is not None:
                 la, lb = lambdas(tab[(a, b)][0], p, gd_alt=gd_alt(city, a, b))
             else:
                 _, la, lb = tab[(a, b)]
             xa, xb = int(rng.poisson(la)), int(rng.poisson(lb))
+        results[(a, b)] = (xa, xb)
         gf[a] += xa; ga[a] += xb; gf[b] += xb; ga[b] += xa
         if xa > xb: pts[a] += 3
         elif xb > xa: pts[b] += 3
         else: pts[a] += 1; pts[b] += 1
     rank = sorted(teams, key=lambda t: (pts[t], gf[t] - ga[t], gf[t], rng.random()), reverse=True)
+
+    def _h2h(x, y):
+        if (x, y) in results: u, v = results[(x, y)]; return (u > v) - (u < v)
+        if (y, x) in results: v, u = results[(y, x)]; return (u > v) - (u < v)
+        return 0
+    # desempate por CONFRONTO DIRETO entre vizinhos empatados em pts/saldo/gols (regra FIFA, antes do sorteio)
+    for i in range(len(rank) - 1):
+        x, y = rank[i], rank[i + 1]
+        if pts[x] == pts[y] and gf[x] - ga[x] == gf[y] - ga[y] and gf[x] == gf[y] and _h2h(x, y) < 0:
+            rank[i], rank[i + 1] = rank[i + 1], rank[i]
     return [(t, pts[t], gf[t] - ga[t], gf[t]) for t in rank]
 
 
@@ -299,8 +315,10 @@ def most_likely_bracket(conn, config_path=DEFAULT_CONFIG) -> dict:
     win, info = {}, {}
 
     def play(mid, a, b):
-        pv, pe, pd = _1x2(a, b)
-        ko = knockout_advance(pv, pe, pd, tab[(a, b)][0], p)
+        # mata-mata NEUTRO: altitude entra SÓ nos jogos de grupo (D-37). Antes a altitude
+        # vazava p/ o mata-mata (via _1x2) e inflava o anfitrião (ex.: México 71% vs Brasil).
+        r = poisson_reads(tab[(a, b)][1], tab[(a, b)][2])
+        ko = knockout_advance(r["pv"], r["pe"], r["pd"], tab[(a, b)][0], p)
         w = a if ko["adv_a"] >= ko["adv_b"] else b
         win[mid] = w
         info[mid] = {"a": a, "b": b, "winner": w, "p_adv": max(ko["adv_a"], ko["adv_b"])}
@@ -311,8 +329,8 @@ def most_likely_bracket(conn, config_path=DEFAULT_CONFIG) -> dict:
         play(mid, win[a], win[b])
     sf_loser = [info[101]["a"] if win[101] == info[101]["b"] else info[101]["b"],
                 info[102]["a"] if win[102] == info[102]["b"] else info[102]["b"]]
-    pv, pe, pd = _1x2(*sf_loser)
-    ko3 = knockout_advance(pv, pe, pd, elos.get(sf_loser[0], 1500) - elos.get(sf_loser[1], 1500), p)
+    r3 = poisson_reads(tab[(sf_loser[0], sf_loser[1])][1], tab[(sf_loser[0], sf_loser[1])][2])
+    ko3 = knockout_advance(r3["pv"], r3["pe"], r3["pd"], tab[(sf_loser[0], sf_loser[1])][0], p)
     third = sf_loser[0] if ko3["adv_a"] >= ko3["adv_b"] else sf_loser[1]
     return {"model": MODEL_VERSION, "group_rank": group_rank, "match": info, "win": win,
             "champion": win[104], "finalists": (info[104]["a"], info[104]["b"]),

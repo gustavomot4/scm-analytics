@@ -44,8 +44,17 @@ def create_app(db_path=None):
             mando = float(request.args.get("mando", 0) or 0)
         except ValueError:
             mando = 0.0
+        odds = None
+        try:
+            oh = float(request.args.get("oh", 0) or 0)
+            od = float(request.args.get("od", 0) or 0)
+            oa = float(request.args.get("oa", 0) or 0)
+            if oh > 1 and od > 1 and oa > 1:
+                odds = (oh, od, oa)
+        except ValueError:
+            odds = None
         conn = db.connect(app.config["DB"])
-        r = predict_match(conn, home, away, mando=mando, city=city)
+        r = predict_match(conn, home, away, mando=mando, city=city, odds=odds)
         conn.close()
         if r.get("erro"):
             return jsonify({"erro": r["erro"], "sugestoes": r.get("sugestoes", [])})
@@ -54,12 +63,15 @@ def create_app(db_path=None):
             "home": r["home"], "away": r["away"], "venue": venue,
             "elo_home": round(r["elo_home"]), "elo_away": round(r["elo_away"]),
             "dr": round(r["dr"]), "provisional": r["provisional"],
+            "elo_diff": round(r["elo_home"] - r["elo_away"]), "form_diff": round(r["form_a"] - r["form_b"], 1),
+            "mando": r["mando"], "gd_alt": round(r["gd_alt"], 2),
+            "dr_desf": round(r["dr_desf"], 1), "gd_desf": round(r["gd_desf"], 2),
             "p_v": r["p_v"], "p_e": r["p_e"], "p_d": r["p_d"],
             "band_lo": r["band_pv_lo"], "band_hi": r["band_pv_hi"],
             "lambda_a": r["lambda_a"], "lambda_b": r["lambda_b"],
             "p_over25": r["p_over25"], "p_btts": r["p_btts"],
             "scores": r["poisson"]["top5"], "conf": r["conf"], "conf_label": r["conf_label"],
-            "markets": r["markets"], "knockout": r.get("knockout"),
+            "markets": r["markets"], "knockout": r.get("knockout"), "mercado": r.get("mercado"),
         })
 
     @app.get("/simulacao")

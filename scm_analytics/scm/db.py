@@ -90,6 +90,16 @@ CREATE TABLE IF NOT EXISTS odds_hist (
     asof   TEXT,
     PRIMARY KEY (natural_key, source)
 );
+-- xG por seleção (esqueleto, D-50): médias de xG pró/contra do StatsBomb Open Data
+-- (cobertura parcial: 2018/2022/Euro). Prior de "estilo" menos ruidoso que gols brutos.
+-- Candidato — NÃO entra em λ sem passar pelo portão. Ingerido por `scm.xg`.
+CREATE TABLE IF NOT EXISTS team_xg (
+    team_id   INTEGER PRIMARY KEY REFERENCES teams(team_id),
+    xg_for    REAL,
+    xg_against REAL,
+    n_games   INTEGER,
+    source    TEXT
+);
 """
 
 
