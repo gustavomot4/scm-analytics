@@ -28,7 +28,9 @@ KAPPA_TM = 0.10
 LAMBDA_MIN = 0.15            # piso de λ (regularização honesta)
 W_POISSON = 0.56             # pesos do ensemble sem odds
 W_ELO = 0.44
-W_AD = 0.30                  # perna ataque/defesa não-Elo — ADOTADA v0.4 (portão +0.0039)
+W_AD = 0.50                  # perna ataque/defesa não-Elo — ADOTADA v0.4; afinado por grid+portão (0.30->0.50)
+USE_XG_PRIOR = False         # liga o prior de xG na perna AD — SÓ após o portão (gate_xg_increment); muda o modelo -> nova versão
+SIM_AD_BLEND = 0.5           # mistura λ da perna AD (gols) no λ da SIMULAÇÃO (0=Elo puro). ADOTADO: portão major +0.0071/all +0.0050 IC>0
 EPS_KO = 0.03                # vantagem do + forte no desempate de mata-mata
 # elo_engine.EloParams:
 H_HIST = 100.0               # mando histórico em jogo não-neutro

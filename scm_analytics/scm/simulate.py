@@ -154,7 +154,32 @@ def build_lambda_table(teams, elos, p, hosts=None) -> dict:
     return tab
 
 
-def _sim_group(teams, tab, played, rng, p=None, alt_venues=None, sig=None):
+def build_ad_lambdas(conn, teams) -> dict:
+    """{(a,b): (λ_AD_a, λ_AD_b)} da perna ataque/defesa (gols, não-Elo) p/ TODO par ordenado.
+
+    P-A no λ da SIM: a simulação amostra placares de uma MISTURA (1−α)·λ_Elo + α·λ_AD (α=
+    config.SIM_AD_BLEND). λ_AD vem dos ratings atuais de ataque/defesa (fit, forward-looking),
+    NEUTROS. Validado pelo portão (poisson_reads do blend vs Elo-só: major +0.0071, all +0.0050,
+    IC>0). Seleções sem rating AD ficam de fora (cai no λ_Elo)."""
+    from .attack_defense import fit as _fit, team_lambdas as _tl
+    atk, dfn = _fit(conn)
+    n2i = {r["name"]: r["team_id"] for r in conn.execute("SELECT team_id, name FROM teams")}
+    out = {}
+    for a in teams:
+        ia = n2i.get(a)
+        if ia is None:
+            continue
+        for b in teams:
+            if a == b:
+                continue
+            ib = n2i.get(b)
+            if ib is None:
+                continue
+            out[(a, b)] = _tl(atk, dfn, ia, ib, neutral=True)
+    return out
+
+
+def _sim_group(teams, tab, played, rng, p=None, alt_venues=None, sig=None, ad_lam=None, alpha=0.0):
     """Roda 1 grupo. Retorna lista ordenada [(team, pts, gd, gf)] do 1º ao 4º.
 
     N2 (D-37): se `alt_venues` traz a sede de altitude de um anfitrião (ex.: {"Mexico":
@@ -184,6 +209,9 @@ def _sim_group(teams, tab, played, rng, p=None, alt_venues=None, sig=None):
             dr_s = rng.normal(dr0, sd) if sd > 0 else dr0
             _ga = gd_alt(city, a, b) if (city and p is not None) else 0.0
             la, lb = lambdas(dr_s, p if p is not None else PredictParams(), gd_alt=_ga)
+            if ad_lam and alpha > 0 and (a, b) in ad_lam:   # P-A: mistura λ da perna AD (gols)
+                lad, lbd = ad_lam[(a, b)]
+                la = (1 - alpha) * la + alpha * lad; lb = (1 - alpha) * lb + alpha * lbd
             xa, xb = int(rng.poisson(la)), int(rng.poisson(lb))
         results[(a, b)] = (xa, xb)
         gf[a] += xa; ga[a] += xb; gf[b] += xb; ga[b] += xa
@@ -204,14 +232,14 @@ def _sim_group(teams, tab, played, rng, p=None, alt_venues=None, sig=None):
     return [(t, pts[t], gf[t] - ga[t], gf[t]) for t in rank]
 
 
-def _knockout_winner(a, b, tab, rng, eps, p=None, sig=None):
+def _knockout_winner(a, b, tab, rng, eps, p=None, sig=None, ad_lam=None, alpha=0.0):
     dr0 = tab[(a, b)][0]
     sd = _pair_sigma(a, b, sig)
     dr_s = rng.normal(dr0, sd) if sd > 0 else dr0        # P4: propaga σ no mata-mata
-    if p is not None:
-        la, lb = lambdas(dr_s, p)
-    else:
-        _, la, lb = tab[(a, b)]
+    la, lb = lambdas(dr_s, p) if p is not None else (tab[(a, b)][1], tab[(a, b)][2])
+    if ad_lam and alpha > 0 and (a, b) in ad_lam:        # P-A: mistura λ da perna AD (gols)
+        lad, lbd = ad_lam[(a, b)]
+        la = (1 - alpha) * la + alpha * lad; lb = (1 - alpha) * lb + alpha * lbd
     xa, xb = int(rng.poisson(la)), int(rng.poisson(lb))
     if xa > xb: return a
     if xb > xa: return b
@@ -219,12 +247,12 @@ def _knockout_winner(a, b, tab, rng, eps, p=None, sig=None):
     return a if rng.random() < share_a else b
 
 
-def simulate_once(groups, tab, played, rng, p, alt_venues=None, sig=None):
+def simulate_once(groups, tab, played, rng, p, alt_venues=None, sig=None, ad_lam=None, alpha=0.0):
     """1 simulação completa pelo CHAVEAMENTO OFICIAL. Retorna (champion, finalists, semis, advancers)."""
     firsts, seconds, thirds = {}, {}, []
     advancers = set()
     for g, teams in groups.items():
-        rank = _sim_group(teams, tab, played, rng, p, alt_venues, sig)
+        rank = _sim_group(teams, tab, played, rng, p, alt_venues, sig, ad_lam, alpha)
         firsts[g] = rank[0][0]; seconds[g] = rank[1][0]
         thirds.append((g,) + rank[2])              # (grupo, team, pts, gd, gf)
         advancers.add(firsts[g]); advancers.add(seconds[g])
@@ -242,9 +270,9 @@ def simulate_once(groups, tab, played, rng, p, alt_venues=None, sig=None):
 
     win = {}
     for mid, a, b in R32:
-        win[mid] = _knockout_winner(team_of(a), team_of(b), tab, rng, p.eps_ko, p, sig)
+        win[mid] = _knockout_winner(team_of(a), team_of(b), tab, rng, p.eps_ko, p, sig, ad_lam, alpha)
     for mid, a, b in LATER:
-        win[mid] = _knockout_winner(win[a], win[b], tab, rng, p.eps_ko, p, sig)
+        win[mid] = _knockout_winner(win[a], win[b], tab, rng, p.eps_ko, p, sig, ad_lam, alpha)
     semis = {win[97], win[98], win[99], win[100]}
     finalists = {win[101], win[102]}
     return win[104], finalists, semis, advancers
@@ -258,6 +286,9 @@ def run(conn, config_path=DEFAULT_CONFIG, n_sims=20000, seed=12345):
     p = PredictParams()
     teams = [t for g in groups.values() for t in g]
     tab = build_lambda_table(teams, elos, p, hosts=cfg.get("hosts"))
+    from . import config as _cfg
+    alpha = getattr(_cfg, "SIM_AD_BLEND", 0.0)
+    ad_lam = build_ad_lambdas(conn, teams) if alpha > 0 else None   # P-A: λ de gols na sim
     alt_venues = cfg.get("altitude_venues")   # N2: {time anfitrião: cidade-sede de altitude}
     rng = np.random.default_rng(seed)
     champ = {t: 0 for t in teams}
@@ -265,7 +296,7 @@ def run(conn, config_path=DEFAULT_CONFIG, n_sims=20000, seed=12345):
     semi = {t: 0 for t in teams}
     adv = {t: 0 for t in teams}
     for _ in range(n_sims):
-        c, f, s, a = simulate_once(groups, tab, played, rng, p, alt_venues, sig)
+        c, f, s, a = simulate_once(groups, tab, played, rng, p, alt_venues, sig, ad_lam, alpha)
         champ[c] += 1
         for t in f: fin[t] += 1
         for t in s: semi[t] += 1
@@ -294,11 +325,22 @@ def most_likely_bracket(conn, config_path=DEFAULT_CONFIG) -> dict:
     teams = [t for g in groups.values() for t in g]
     tab = build_lambda_table(teams, elos, p, hosts=cfg.get("hosts"))
     alt = cfg.get("altitude_venues")
+    from . import config as _cfg
+    alpha = getattr(_cfg, "SIM_AD_BLEND", 0.0)
+    ad_lam = build_ad_lambdas(conn, teams) if alpha > 0 else None   # P-A: λ de gols na sim
+
+    def _blend(a, b, la, lb):
+        if ad_lam and alpha > 0 and (a, b) in ad_lam:
+            lad, lbd = ad_lam[(a, b)]
+            return (1 - alpha) * la + alpha * lad, (1 - alpha) * lb + alpha * lbd
+        return la, lb
 
     def _ll(a, b):
         if alt and (a in alt or b in alt):
-            return lambdas(tab[(a, b)][0], p, gd_alt=gd_alt(alt.get(a) or alt.get(b), a, b))
-        return tab[(a, b)][1], tab[(a, b)][2]
+            la, lb = lambdas(tab[(a, b)][0], p, gd_alt=gd_alt(alt.get(a) or alt.get(b), a, b))
+        else:
+            la, lb = tab[(a, b)][1], tab[(a, b)][2]
+        return _blend(a, b, la, lb)
 
     def _1x2(a, b):
         la, lb = _ll(a, b); r = poisson_reads(la, lb)
@@ -339,7 +381,8 @@ def most_likely_bracket(conn, config_path=DEFAULT_CONFIG) -> dict:
     def play(mid, a, b):
         # mata-mata NEUTRO: altitude entra SÓ nos jogos de grupo (D-37). Antes a altitude
         # vazava p/ o mata-mata (via _1x2) e inflava o anfitrião (ex.: México 71% vs Brasil).
-        r = poisson_reads(tab[(a, b)][1], tab[(a, b)][2])
+        _la, _lb = _blend(a, b, tab[(a, b)][1], tab[(a, b)][2])
+        r = poisson_reads(_la, _lb)
         ko = knockout_advance(r["pv"], r["pe"], r["pd"], tab[(a, b)][0], p)
         w = a if ko["adv_a"] >= ko["adv_b"] else b
         win[mid] = w

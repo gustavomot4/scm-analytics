@@ -85,6 +85,41 @@ def load_csv(path, conn) -> dict:
     return {"ingeridos": n, "ignorados": bad}
 
 
+def bench_vs_market(conn, versao, source=None, only_major=False, B=10000, seed=12345) -> dict:
+    """Brier do MODELO vs MERCADO vs BLEND nos jogos com odds E resultado (o juiz honesto).
+
+    Junta `odds_hist` (de-vigged) + `predictions` (versao) + `matches` (placar). Para cada jogo:
+    Brier(modelo), Brier(mercado), Brier(blend 0.20). Reporta médias + ΔBrier pareado
+    (modelo − mercado, >0 = mercado melhor) com IC bootstrap. Sem odds → n=0.
+    """
+    from .backtest_harness import brier, outcome_of, gate, MAJOR
+    q = ("SELECT o.p_home, o.p_draw, o.p_away, p.p_v, p.p_e, p.p_d, "
+         "m.home_score hs, m.away_score s, m.tournament t "
+         "FROM odds_hist o JOIN matches m ON m.match_id = o.match_id "
+         "JOIN predictions p ON p.match_id = m.match_id AND p.versao_modelo = ? "
+         "WHERE m.home_score IS NOT NULL")
+    args = [versao]
+    if source:
+        q += " AND o.source = ?"; args.append(source)
+    rows = conn.execute(q, args).fetchall()
+    if only_major:
+        rows = [r for r in rows if r["t"] in MAJOR]
+    if not rows:
+        return {"n": 0}
+    bm = bk = bb = 0.0; dmk = []
+    for r in rows:
+        o = outcome_of(r["hs"], r["s"])
+        model = {"p_v": r["p_v"], "p_e": r["p_e"], "p_d": r["p_d"]}
+        mkt = {"p_v": r["p_home"], "p_e": r["p_draw"], "p_d": r["p_away"]}
+        bl = blend(model, mkt)
+        x, y, z = brier(model, o), brier(mkt, o), brier(bl, o)
+        bm += x; bk += y; bb += z; dmk.append(x - y)   # >0 = mercado melhor que modelo
+    n = len(rows); g = gate(dmk, B, seed)
+    return {"n": n, "brier_modelo": bm / n, "brier_mercado": bk / n, "brier_blend": bb / n,
+            "delta_modelo_vs_mercado": g["mean"], "ic_lo": g["ic_lo"], "ic_hi": g["ic_hi"],
+            "modelo_bate_mercado": g["ic_hi"] < 0}
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Ingestão/consulta de odds de mercado (P-H).")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -93,6 +128,10 @@ def main(argv=None) -> int:
     ps = sub.add_parser("show", help="mostra o mercado de-vigged de um confronto")
     ps.add_argument("home"); ps.add_argument("away"); ps.add_argument("--date", required=True)
     ps.add_argument("--db", default=str(DEFAULT_DB))
+    pb = sub.add_parser("bench", help="Brier modelo vs mercado vs blend (jogos com odds+placar)")
+    pb.add_argument("--db", default=str(DEFAULT_DB)); pb.add_argument("--source", default=None)
+    pb.add_argument("--major", action="store_true")
+    pb.add_argument("--versao", default=None)
     pc = sub.add_parser("conv", help="converte 3 odds decimais em prob de-vigged")
     pc.add_argument("odds", nargs=3, type=float, metavar=("HOME", "DRAW", "AWAY"))
     args = ap.parse_args(argv)
@@ -110,6 +149,17 @@ def main(argv=None) -> int:
             print("sem odds cadastradas p/ este confronto."); return 1
         print(f"mercado {args.home} x {args.away} ({args.date}): "
               f"casa {m['p_v']*100:.1f}% · empate {m['p_e']*100:.1f}% · fora {m['p_d']*100:.1f}%")
+        return 0
+    if args.cmd == "bench":
+        from .predictor import MODEL_VERSION
+        conn = db.connect(args.db)
+        r = bench_vs_market(conn, args.versao or MODEL_VERSION, args.source, args.major); conn.close()
+        if not r.get("n"):
+            print("sem jogos com odds+placar. Ingira odds (scm.odds ingest) de jogos já disputados."); return 1
+        print(f"\n  MODELO vs MERCADO  (n={r['n']})")
+        print(f"  Brier modelo {r['brier_modelo']:.4f} | mercado {r['brier_mercado']:.4f} | blend {r['brier_blend']:.4f}")
+        print(f"  ΔBrier modelo−mercado = {r['delta_modelo_vs_mercado']:+.4f} IC[{r['ic_lo']:+.4f},{r['ic_hi']:+.4f}]")
+        print(f"  -> {'MODELO bate o mercado (IC<0)' if r['modelo_bate_mercado'] else 'mercado >= modelo (o esperado; blend tende a ganhar)'}\n")
         return 0
     return 1
 

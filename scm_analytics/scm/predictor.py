@@ -55,8 +55,9 @@ class PredictParams:
     n_strata: int = 200           # propagação determinística
     w_poisson: float = 0.56       # pesos sem odds (backtest histórico)
     w_elo: float = 0.44
-    w_ad: float = 0.30            # perna ataque/defesa não-Elo (P-A) — ADOTADA v0.4 (portão +0.0039,
-                                  #   IC[+0.0028,+0.0051]); fonte independente de gols (corr ~0.95 vs 0.997)
+    w_ad: float = 0.50            # perna ataque/defesa não-Elo (P-A) — ADOTADA v0.4; peso AFINADO
+                                  #   por grid+portão (0.30->0.50: ΔBrier +0.0008 all/+0.0012 major, IC>0;
+                                  #   acima de ~0.7 o ECE degrada). Fonte independente de gols (corr ~0.95 vs 0.997).
     clamp_lo: float = 0.02
     clamp_hi: float = 0.96
     eps_ko: float = 0.03         # mata-mata: leve vantagem do + forte no desempate [a calibrar]
@@ -309,7 +310,12 @@ def run(conn, params: PredictParams = PredictParams()) -> dict:
     ad_pit = None
     if params.w_ad > 0:                       # perna AD não-Elo (P-A): só quando ligada (w_ad>0)
         from .attack_defense import run_pit   # puro (sem ciclo); λ PRÉ-jogo (PIT)
-        ad_pit = run_pit(conn)
+        from . import config as _cfg
+        _pri = None
+        if getattr(_cfg, "USE_XG_PRIOR", False):   # prior de xG (D-67): só após o portão (muda o modelo)
+            from .attack_defense import xg_priors
+            _pri = xg_priors(conn) or None
+        ad_pit = run_pit(conn, priors=_pri)
     conn.execute("DELETE FROM predictions WHERE versao_modelo = ?", (MODEL_VERSION,))
     rows = conn.execute(
         """SELECT mf.match_id, mf.dr_adj, mf.sigma_dr, m.city,

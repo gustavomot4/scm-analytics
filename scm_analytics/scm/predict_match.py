@@ -157,7 +157,12 @@ def predict_match(conn, home, away, mando=0.0, city=None, sigma_ajuste=None, usa
     if pp.w_ad > 0:
         from .attack_defense import fit as _ad_fit, team_lambdas as _ad_lams
         from .predictor import poisson_reads as _pr
-        _atk, _dfn = _ad_fit(conn)
+        from . import config as _cfg
+        _pri = None
+        if getattr(_cfg, "USE_XG_PRIOR", False):
+            from .attack_defense import xg_priors
+            _pri = xg_priors(conn) or None
+        _atk, _dfn = _ad_fit(conn, priors=_pri)
         _la, _lb = _ad_lams(_atk, _dfn, a["team_id"], b["team_id"], neutral=(mando == 0))
         _ar = _pr(_la, _lb, pp.max_goals)
         ad_ved = (_ar["pv"], _ar["pe"], _ar["pd"])

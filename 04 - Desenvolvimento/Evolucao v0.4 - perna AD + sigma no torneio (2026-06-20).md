@@ -71,3 +71,74 @@ desta sessão truncava arquivos em edições grandes e bloqueava `rm`. Os `.py` 
 copiados de volta e **verificados byte-a-byte + compilação**; o `scm.sqlite` foi substituído pela
 cópia limpa com v0.4 (`PRAGMA integrity_check = ok`). **`pytest` não rodou aqui** (sem o pacote/rede);
 os testes foram lidos e o de skill validado pela lógica equivalente. Rode `pytest` na sua máquina.
+
+---
+
+## Adendo 2026-06-20 (b) — afinação de pesos + rigs de dados
+
+**Ganhos rápidos com portão (rodados de verdade):**
+- **Peso da perna AD afinado `w_ad` 0,30 → 0,50** (grid em treino<2018 / teste≥2018 + portão).
+  O ganho cresce monotônico com w_ad e **passa o portão** com folga estatística: 0,50 vs 0,30
+  ALL **+0,00079 IC[+0,00066,+0,00093]**, MAJOR **+0,00115 IC[+0,00062,+0,00170]**. [verificado]
+  Acima de ~0,7 o **ECE degrada** (major: 0,032→0,034 em 0,50; →0,042 em 1,0), então parei em
+  **0,50** (captura o grosso do ganho de Brier com custo de calibração pequeno). Brier major
+  **0,5554 → 0,5542**; vs teto do dr **+0,0073 IC[+0,0043,+0,0103]**. [verificado]
+- **Recalibração 1X2 re-testada no v0.4 — segue REJEITADA.** Temperatura T*=1,00 (já calibrado);
+  isotônica/classe ΔBrier ~0 (ALL) / piora (MAJOR, overfit em n=457), IC cruza/abaixo de 0. O
+  pequeno aumento de ECE é o custo aceito do ganho de Brier; não recalibra. [verificado]
+
+**Rigs de dados (montados e testados; o ganho depende do SEU dado):**
+- **Odds — benchmark modelo vs mercado** novo em `scm/odds.py` (`bench_vs_market` + CLI `bench`).
+  Mede Brier(modelo) vs Brier(mercado) vs Brier(blend 0,20) nos jogos com odds+placar. Pipeline
+  (de-vig/blend/auto-load) já existia; faltava o **juiz**. Testado com odds sintéticas (junção
+  odds_hist↔predictions↔matches OK). Workflow:
+  ```
+  # 1) preencha odds decimais reais em dados/odds_copa.csv (template criado)
+  python -m scm.odds ingest dados/odds_copa.csv
+  # 2) após os jogos (ingest --download para puxar placares):
+  python -m scm.odds bench --major        # modelo bate o mercado? (IC)
+  ```
+- **xG → prior da perna AD** — caminho `scm.xg ingest` → `team_xg` → `attack_defense.xg_priors`
+  → `run_pit(priors)` **verificado** (com xG sintético). Paste-and-go: derive um CSV do StatsBomb
+  (`type/team/xg_for/xg_against`), `python -m scm.xg ingest <csv>`, depois gate:
+  `python -m scm.attack_defense --xg-prior` (portão no subconjunto coberto). Sem dado real aqui.
+- **Desfalques** — `dados/desfalques.json` (template com os jogos da Copa, listas vazias = sem
+  efeito até preencher). Efeito direcional verificado: Espanha atacante-chave fora → λ 2,57→1,93,
+  P 81,7%→77,9% (cai); zagueiro do rival fora → dr a favor. `register` auto-carrega o JSON.
+
+**Estado:** modelo **`baseline-v0.4-ad`** com w_ad=0,50. Arquivos novos: `dados/desfalques.json`,
+`dados/odds_copa.csv`; `odds.py` ganhou `bench`. Rebuild: `rm -rf scm/__pycache__ && python -m scm.predictor`.
+
+---
+
+## Próximo passo executado 2026-06-20 (c) — bench MODELO vs MERCADO (1ª medição real)
+
+Capturei odds reais de **12 jogos já disputados** da Copa (FanDuel/bet365/consenso, American→decimal,
+de-vig): 7 com favorito vencedor + os 5 empates do `registro-previsoes.csv`. Fonte salva em
+`dados/odds_copa_disputados.csv` (regenerável: `scm.odds ingest`). Rodei `scm.odds bench`:
+
+| n=12 | Brier modelo | Brier mercado | Brier blend(0,20) |
+|---|---|---|---|
+| geral | **0,640** | **0,566** | 0,623 |
+| favorito venceu (n=7) | 0,278 | 0,215 | — |
+| empates (n=5) | 1,146 | 1,056 | — |
+
+**Veredito: o mercado vence** — ΔBrier(modelo−mercado) **+0,074 IC[+0,034,+0,128]** (o esperado;
+o mercado é o benchmark mais difícil). O blend de 0,20 reduz o gap mas não fecha.
+
+**Insight (NÃO conclusivo — n=12 e seleção enviesada: 5 empates vêm do log manual de jogos
+apertados):** o modelo é **sub-confiante nos favoritos** (encolhe demais — Alemanha 84% vs mercado
+93%, Brasil 80 vs 86, EUA 39 vs 46) e **superestimou o anfitrião Canadá** (72% vs 53%, deu empate).
+Casa com o achado da auditoria de que a **banda sobre-cobre** (σ_dr largo demais) — o mercado é mais
+afiado nos favoritos. **Hipótese a vigiar conforme a amostra cresce; com n=12 não se mexe no modelo.**
+
+**Loop (operacional, cada rodada):**
+```
+# 1) capture odds de fechamento -> dados/odds_copa_disputados.csv (ou odds_copa.csv p/ vindouros)
+python -m scm.odds ingest dados/odds_copa_disputados.csv
+# 2) depois dos jogos:
+python -m scm.ingest --download && python -m scm.ingest && python -m scm.elo_engine && python -m scm.features_pit && python -m scm.predictor
+python -m scm.odds bench --major        # o modelo bate o mercado? (IC)
+# em produção, predict_match --date auto-carrega o mercado e mistura 20% no 1X2
+```
+Quanto mais jogos com odds, mais apertado o IC — e mais sério o veredito sobre ter (ou não) edge.

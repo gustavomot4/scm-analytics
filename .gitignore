@@ -15,3 +15,12 @@ scm_analytics/dados/*.csv
 .obsidian/cache
 scm_analytics/dados/*.png
 scm_analytics/dados/*.json
+
+# StatsBomb open-data: clone de TERCEIROS (~18 GB, repo + licença próprios), regenerável por
+# `git clone`. NUNCA versionar (estoura o GitHub e re-distribui repo alheio). Re-clone quando precisar.
+scm_analytics/open-data/
+open-data/
+
+# xG DERIVADO (pequeno, auditável): por padrão segue ignorado pela regra dados/*.csv acima.
+# Recomendado COMMITAR p/ reproduzir sem o clone de 18 GB — descomente a linha abaixo:
+# !scm_analytics/dados/xg.csv

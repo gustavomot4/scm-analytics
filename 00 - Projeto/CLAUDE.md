@@ -142,3 +142,20 @@ Modelo recomendado agora: **`baseline-v0.4-ad`**. Implementação do plano da [[
 - **Rejeitados pelo portão (ficam OFF):** `T_base` (ótimo=2,60), forma `tanh` (pior no tail −0,0042), recalibração 1X2 (T=1,0; isotônica −0,0021), σ-Glicko (banda já sobre-cobre). Ressalva: ECE subiu 0,026→0,033.
 - **Higiene:** novo `tests/test_skill_regression.py` (trava o skill do backtest, audit P12); `config.W_AD`.
 - **Rebuild:** `rm -rf scm/__pycache__ && python -m scm.predictor` (a base muda). Rode `pytest` na sua máquina.
+
+## ▶ Atualização 2026-06-20 (b) — afinação + rigs de dados
+- **`w_ad` afinado 0,30 → 0,50** (grid+portão): Brier major **0,5554→0,5542**, bate o teto do dr **+0,0073 IC>0**. Parei em 0,50 (acima de ~0,7 o ECE degrada). Recalibração 1X2 re-testada e **segue rejeitada** (T*=1,0). [verificado]
+- **Rigs montados (dado é seu):** `odds.py bench` (Brier modelo vs mercado) + template `dados/odds_copa.csv`; caminho xG→AD verificado (`scm.attack_defense --xg-prior`); `dados/desfalques.json` (template, efeito direcional verificado). Detalhe: [[Evolucao v0.4 - perna AD + sigma no torneio (2026-06-20)]] (adendo b).
+
+## ▶ Atualização 2026-06-20 (d) — pipeline de xG turnkey (prior de elenco, OFF até o portão)
+A maior alavanca permitida (comparação vs Opta/EA): **xG como prior da perna AD**. Encanamento pronto, **OFF por padrão** (`config.USE_XG_PRIOR=False`) — nada muda no v0.4 até passar o portão.
+- **`scm.xg build <clone do statsbomb/open-data>`** → `team_xg` (+ CSV). Ou `scm.xg ingest <csv>` (manual).
+- **`scm.attack_defense --gate-xg`** (`gate_xg_increment`): mede se o xG ACRESCENTA sobre a perna AD (ΔBrier pareado, IC).
+- **Se IC>0:** `config.USE_XG_PRIOR=True` + `rm -rf scm/__pycache__` + rebuild + bump (`baseline-v0.5-xg`). Senão, deixa OFF.
+- Guia: [[Como usar xG (prior de elenco) — turnkey (2026-06-20)]]. Limite: StatsBomb cobre WC18/22+Euro, não as 48.
+
+## ▶ Atualização 2026-06-21 — xG rodado no dado REAL: portão marginal, NÃO adotado
+Construtor `scm.xg build` validado no StatsBomb real (73 seleções, 37/48 da Copa; `dados/xg.csv`). Portão `gate_xg_increment`: major **+0,00022 IC[+0,00001,+0,00044]** (passa por um fio), todos **+0,00002 IC cruza 0** (nulo). **Mantido `USE_XG_PRIOR=False`** (ruído; ~6× menor que o que D-17 já rejeitou). Motivo: a perna AD já extrai gols (xG ~redundante) e a **simulação usa só `lambdas(dr)` [Elo]**, então xG não toca o favoritismo. Para mexer no título, o sinal de elenco teria de entrar no `dr`/λ da simulação (mudança maior, com portão). Detalhe: [[Como usar xG (prior de elenco) — turnkey (2026-06-20)]] (RESULTADO REAL).
+
+## ▶ Atualização 2026-06-21 (b) — sinal de gols (perna AD) no λ da SIMULAÇÃO (ADOTADO)
+A simulação do título usava só `lambdas(dr)` (Elo puro). Agora amostra de `λ=(1−α)·λ_Elo+α·λ_AD` (α=`config.SIM_AD_BLEND=0.5`), com a λ da perna AD (gols). **Portão: major +0,00712 IC[+0,0047,+0,0096]; all +0,00497 IC[+0,0043,+0,0056]** — passa com folga (maior ganho do trabalho). Efeito no título: Brasil/Portugal/Alemanha ↑ (rumo ao consenso), México (anfitrião) ↓, **Spain ↓ 15→10** (gols não sustentam o favoritismo de elenco do EA/Opta), Colômbia segue alta (Copa América a defende), Argentina segue 1º. Muda só a SIM; o modelo de 1 jogo (v0.4-ad) é o mesmo. Detalhe: [[Comparacao com mercado, Opta e EA (2026-06-20)]] (experimento 06-21).

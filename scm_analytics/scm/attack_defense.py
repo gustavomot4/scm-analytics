@@ -168,17 +168,75 @@ def gate_ad(conn, w_ad: float = 0.40, only_major: bool = True, B: int = 10000, s
     return {"n": len(deltas), "w_ad": w_ad, **g}
 
 
+def gate_xg_increment(conn, w_ad=None, only_major: bool = True, B: int = 10000, seed: int = 12345):
+    """PORTAO: o prior de xG ACRESCENTA sobre a perna AD atual? ΔBrier pareado (IC).
+
+    Compara ensemble[Poisson+Elo+AD(xG)] vs ensemble[Poisson+Elo+AD(sem xG)] por jogo (delta =
+    brier_sem − brier_com, >0 = xG melhora). keep = IC95 > 0. Usa dr_adj de match_features
+    (rápido). Precisa de team_xg ingerido (scm.xg ingest/build). É o portão da regra do projeto
+    (nada entra em λ sem IC que não cruza zero) ANTES de ligar config.USE_XG_PRIOR.
+    """
+    from .predictor import PredictParams, lambdas, poisson_reads, ved_from_elo, _clamp_norm
+    from .backtest_harness import brier, outcome_of, gate, MAJOR
+    p = PredictParams(); wad = p.w_ad if w_ad is None else w_ad
+    pri = xg_priors(conn)
+    if not pri:
+        return {"n": 0, "erro": "team_xg vazio — rode `python -m scm.xg ingest <csv>` ou `build`"}
+    pit_x = run_pit(conn, priors=pri); pit_p = run_pit(conn, priors=None)
+    rows = conn.execute("SELECT mf.match_id mid, mf.dr_adj dr, m.home_score hs, m.away_score s, "
+                        "m.tournament t FROM match_features mf JOIN matches m USING(match_id) "
+                        "WHERE m.home_score IS NOT NULL").fetchall()
+    if only_major:
+        rows = [r for r in rows if r["t"] in MAJOR]
+    ws = p.w_poisson + p.w_elo + wad
+
+    def mix(cp, ce, ca):
+        return _clamp_norm([(p.w_poisson * cp[i] + p.w_elo * ce[i] + wad * ca[i]) / ws for i in range(3)],
+                           p.clamp_lo, p.clamp_hi)
+
+    deltas = []
+    for r in rows:
+        la, lb = lambdas(r["dr"], p); pr = poisson_reads(la, lb)
+        cp = _clamp_norm((pr["pv"], pr["pe"], pr["pd"]), p.clamp_lo, p.clamp_hi)
+        ce = _clamp_norm(ved_from_elo(r["dr"], p), p.clamp_lo, p.clamp_hi)
+        lax, lbx = pit_x.get(r["mid"], (None, None)); lap, lbp = pit_p.get(r["mid"], (None, None))
+        if lax is None or lap is None:
+            continue
+        arx = poisson_reads(lax, lbx); arp = poisson_reads(lap, lbp)
+        cax = _clamp_norm((arx["pv"], arx["pe"], arx["pd"]), p.clamp_lo, p.clamp_hi)
+        cap = _clamp_norm((arp["pv"], arp["pe"], arp["pd"]), p.clamp_lo, p.clamp_hi)
+        o = outcome_of(r["hs"], r["s"])
+        mx = mix(cp, ce, cax); mp = mix(cp, ce, cap)
+        deltas.append(brier({"p_v": mp[0], "p_e": mp[1], "p_d": mp[2]}, o)
+                      - brier({"p_v": mx[0], "p_e": mx[1], "p_d": mx[2]}, o))
+    if not deltas:
+        return {"n": 0}
+    g = gate(deltas, B=B, seed=seed)
+    return {"n": len(deltas), "w_ad": wad, **g}
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Prior ataque/defesa não-Elo (candidato P-A): ratings + portão.")
     ap.add_argument("--db", default=str(DEFAULT_DB))
     ap.add_argument("--w-ad", type=float, default=0.40, dest="w_ad", help="peso da perna AD no ensemble")
     ap.add_argument("--xg-prior", action="store_true", dest="xg_prior",
                     help="[D-67] usa o xG (team_xg) como prior do ataque/defesa (menos ruidoso que gols)")
+    ap.add_argument("--gate-xg", dest="gate_xg", action="store_true",
+                    help="PORTÃO: o prior de xG acrescenta sobre a perna AD? (precisa de team_xg)")
     ap.add_argument("--top", type=int, default=12)
     args = ap.parse_args(argv)
     if not Path(args.db).exists():
         print(f"[erro] {args.db} não existe. Rode ingest + elo_engine antes."); return 1
     conn = db.connect(args.db)
+    if getattr(args, "gate_xg", False):
+        r = gate_xg_increment(conn, w_ad=args.w_ad); conn.close()
+        if not r.get("n"):
+            print("[!]", r.get("erro", "sem dados (rode o pipeline)")); return 1
+        print(f"\n  PORTÃO xG (incremento sobre a perna AD) — w_ad={r['w_ad']:.2f}, n={r['n']}")
+        print(f"  ΔBrier(com xG − sem xG, >0 = melhora) = {r['mean']:+.5f}  IC95 [{r['ic_lo']:+.5f}, {r['ic_hi']:+.5f}]")
+        print("  → " + ("ADOTAR xG ✓ (IC>0): ligue config.USE_XG_PRIOR=True + rebuild + bump de versão"
+                        if r["keep"] else "NÃO adotar (IC cruza/≤0) — mantém AD sem xG") + "\n")
+        return 0
     priors = xg_priors(conn) if args.xg_prior else None
     if args.xg_prior and not priors:
         print("[aviso] sem xG ingerido (team_xg vazio) — rode `python -m scm.xg ingest <csv>`. Seguindo sem prior.")
