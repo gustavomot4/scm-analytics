@@ -109,3 +109,12 @@ Modelo **`baseline-v0.3-altitude`** · **92 testes** (era 86; +6 dos novos recur
 
 ### 2026-06-18 (d) — chaveamento oficial + ε do mata-mata
 `simulate.py` agora usa o **chaveamento oficial da FIFA** (R32→final; 3os por elegibilidade do Anexo C). Novo `scm/calibrate_ko.py` calibra o **ε** dos pênaltis com `shootouts.csv` (rodar `--download` na sua máquina). **102 testes** (era 100; +2, incl. as 495 combinações de 3º). D-33.
+
+
+## ▶ Atualização 2026-06-21 — `baseline-v0.4-ad` (26 arquivos de teste, 137 casos)
+Supersede as notas de v0.2/v0.3 acima (históricas; vale `predictor.MODEL_VERSION`).
+- **Perna AD não-Elo LIGADA** (`predictor.PredictParams.w_ad=0,50`, afinada por grid+portão): bate o teto do `dr` (major vs lookup +0,0073 IC>0).
+- **Simulação usa λ misturado** Elo+AD (`config.SIM_AD_BLEND=0,50`; `simulate.build_ad_lambdas`) — portão major +0,0071/all +0,0050; e **σ propagado** no Monte Carlo.
+- **Módulos/recursos novos:** `odds.bench_vs_market` (`scm.odds bench`), `xg.build_from_statsbomb` (`scm.xg build`), `attack_defense.gate_xg_increment` (`--gate-xg`), `config.USE_XG_PRIOR` (xG OFF — portão marginal), `tests/test_skill_regression.py`.
+- Rejeitados pelo portão (OFF): T_base, forma saturante (tanh), recalibração 1X2, σ-Glicko, prior de xG.
+Detalhe: [[Auditoria + plano de melhorias (modelo, 2026-06-20)]] · [[Evolucao v0.4 - perna AD + sigma no torneio (2026-06-20)]].

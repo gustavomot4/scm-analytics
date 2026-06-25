@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%232563eb'/><text x='16' y='22' font-size='17' font-weight='700' text-anchor='middle' fill='white' font-family='Segoe UI,Arial'>S</text></svg>">
 <title>SCM Analytics — Previsão de partidas</title>
 <style>
   :root{
@@ -97,9 +98,6 @@
   .sb-nav a:hover{background:#eceff3}
   .sb-nav a.active{background:var(--accent-weak);color:var(--accent);font-weight:500}
   .sb-foot{margin-top:auto;color:var(--muted);font-size:11px;padding-top:12px;border-top:1px solid var(--border)}
-  .sb-update{width:100%;height:32px;margin-bottom:6px;border:1px solid var(--border-strong);border-radius:6px;background:#fff;color:var(--text);font:inherit;font-size:13px;cursor:pointer}
-  .sb-update:hover{background:#eceff3} .sb-update:disabled{opacity:.6;cursor:default}
-  .sb-updmsg{font-size:11px;color:var(--muted);margin-bottom:8px;min-height:13px}
   .content{flex:1;min-width:0}
   @media(max-width:720px){.app{flex-direction:column}.sidebar{width:auto;height:auto;position:static;flex-direction:row;align-items:center;gap:8px;overflow-x:auto;padding:8px 12px}.sb-brand{padding:0 8px 0 4px;white-space:nowrap}.sb-brand span{display:none}.sb-nav{flex-direction:row}.sb-foot{display:none}}
   .oddsrow{display:flex;align-items:center;gap:8px;margin-top:12px;flex-wrap:wrap;font-size:13px}
@@ -112,23 +110,25 @@
   .explain .chip{background:var(--panel);border:1px solid var(--border);border-radius:999px;padding:3px 10px}
   .explain .chip b{color:var(--text);font-weight:600}
   .explain .eq{color:var(--accent);font-weight:600}
+
+  /* P7: dark mode ADITIVO (só no modo escuro do SO; não afeta o claro). Sobrescreve as vars
+     e as superfícies que eram brancas fixas. */
+  @media (prefers-color-scheme: dark){
+    :root{--bg:#0f1115;--panel:#171a21;--text:#e6e8eb;--muted:#98a2b3;--border:#272c36;
+      --border-strong:#39404c;--accent:#4f8cff;--accent-weak:#18233b;--accent-strong:#6ba0ff;
+      --win:#4f8cff;--draw:#8a93a3;--loss:#aeb6c2}
+    body{background:var(--bg);color:var(--text)}
+    input,select,textarea{background:#11151c;color:var(--text);border-color:var(--border-strong)}
+    .result,.stat,.card,.m,.mktcmp,.tabs button,.btn,.ctl button,.chip{background:var(--panel)}
+    .sidebar{background:var(--panel)}
+    .error,.warn{background:#2a1416;border-color:#5a2a2a;color:#f3b6b6}
+  }
 </style>
 </head>
 <body>
   <div class="app">
-  <aside class="sidebar">
-    <div class="sb-brand">SCM Analytics<span>Copa 2026</span></div>
-    <nav class="sb-nav">
-      <a href="/" class="active">Prever confronto</a>
-      <a href="/simulacao">Simular Copa</a>
-      <a href="/bracket">Chaveamento</a>
-      <a href="/prospectivo">Prospectivo</a>
-    </nav>
-    <div class="sb-foot">
-      {% include '_update_widget.html' %}
-      <div class="model" id="model"></div><div>Probabilidade, não certeza.</div>
-    </div>
-  </aside>
+  {% set active='prever' %}
+{% include '_sidebar.html' %}
   <div class="content">
   <main>
     <h1>Prever um confronto</h1>
@@ -152,6 +152,7 @@
           <option value="LaPaz">Altitude — La Paz</option>
           <option value="Quito">Altitude — Quito</option>
           <option value="Bogota">Altitude — Bogotá</option>
+          <option value="Guadalajara">Altitude — Guadalajara</option>
         </select>
       </div>
       <div class="field">
@@ -160,12 +161,13 @@
       </div>
       <datalist id="teams"></datalist>
     </form>
+    <button type="button" id="swap" title="Trocar mandante e visitante" style="margin-top:10px;height:30px;padding:0 12px;border:1px solid var(--border-strong);border-radius:6px;background:#fff;font:inherit;font-size:13px;cursor:pointer">⇄ trocar lados</button>
     <label class="ko-toggle"><input type="checkbox" id="ko"> Jogo eliminatório — mostrar probabilidade de <b>avançar</b> (empate → prorrogação/pênaltis)</label>
     <div class="oddsrow">
       <span class="lbl">Odds de mercado (opcional):</span>
-      <input type="text" id="oh" placeholder="casa" class="tnum" inputmode="decimal">
-      <input type="text" id="od" placeholder="empate" class="tnum" inputmode="decimal">
-      <input type="text" id="oa" placeholder="fora" class="tnum" inputmode="decimal">
+      <input type="text" id="oh" placeholder="casa" aria-label="odd da casa (decimal)" class="tnum" inputmode="decimal">
+      <input type="text" id="od" placeholder="empate" aria-label="odd do empate (decimal)" class="tnum" inputmode="decimal">
+      <input type="text" id="oa" placeholder="fora" aria-label="odd do fora (decimal)" class="tnum" inputmode="decimal">
       <span class="hint">decimais (ex.: 2.10 · 3.30 · 3.60) — mistura 20% no 1X2 (contrato §3.8)</span>
     </div>
     <div class="count" id="count"></div>
@@ -212,6 +214,7 @@
           <div class="stats" id="mkt2"></div>
         </div>
       </div>
+      <div class="footer" id="regrow" style="border-top:none;padding-bottom:0"></div>
       <div class="footer">Probabilidade, não certeza — não é recomendação de aposta.</div>
     </section>
   </main>
@@ -223,7 +226,7 @@
   let lastData = null;
   const pct = x => (x*100).toFixed(1) + '%';
   const venueMap = {neutral:{}, host:{mando:40}, MexicoCity:{city:'Mexico City'},
-    LaPaz:{city:'La Paz'}, Quito:{city:'Quito'}, Bogota:{city:'Bogota'}};
+    LaPaz:{city:'La Paz'}, Quito:{city:'Quito'}, Bogota:{city:'Bogota'}, Guadalajara:{city:'Guadalajara'}};
   const colorFor = k => k==='v' ? 'var(--win)' : k==='e' ? 'var(--draw)' : 'var(--loss)';
 
   async function loadTeams(){
@@ -261,6 +264,8 @@
       + ' (dr ' + (d.dr>=0?'+':'') + d.dr + ')' + (d.provisional ? ' &middot; rating provisório' : '');
     $('bar').innerHTML = [['v',d.p_v],['e',d.p_e],['l',d.p_d]]
       .map(([k,x]) => `<i style="width:${x*100}%;background:${colorFor(k)}"></i>`).join('');
+    $('bar').setAttribute('role','img');
+    $('bar').setAttribute('aria-label', d.home+' '+pct(d.p_v)+', empate '+pct(d.p_e)+', '+d.away+' '+pct(d.p_d));
     $('legend').innerHTML = [['v',d.home,d.p_v],['e','Empate',d.p_e],['l',d.away,d.p_d]]
       .map(([k,nm,x]) => `<div class="item"><span class="dot" style="background:${colorFor(k)}"></span><span class="pct tnum">${pct(x)}</span><span class="nm">${nm}</span></div>`).join('');
     $('band').textContent = 'Banda de P(' + d.home + '): ' + pct(d.band_lo) + ' – ' + pct(d.band_hi);
@@ -311,8 +316,10 @@
     ].map(([k,v]) => `<div class="stat"><div class="k">${k}</div><div class="v tnum">${v}</div></div>`).join('');
     $('confbar').style.width = Math.round(d.conf) + '%';
     $('conflbl').innerHTML = '<b>' + Math.round(d.conf) + ' / 100</b> — ' + d.conf_label;
+    $('regrow').innerHTML = 'Jogo real da Copa? <a href="/prospectivo?home='+encodeURIComponent(d.home)+'&away='+encodeURIComponent(d.away)+'" style="color:var(--accent);font-weight:500">Registrar no painel Prospectivo →</a>';
     lastData = d; renderKo();
     $('result').classList.add('show');
+    $('result').scrollIntoView({behavior:'smooth', block:'nearest'});
   }
 
   function renderKo(){
@@ -324,6 +331,7 @@
     el.classList.add('show');
   }
 
+  $('swap').addEventListener('click', () => { const h=$('home').value; $('home').value=$('away').value; $('away').value=h; });
   $('form').addEventListener('submit', predict);
   $('ko').addEventListener('change', renderKo);
   loadTeams();

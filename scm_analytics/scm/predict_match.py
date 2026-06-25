@@ -25,11 +25,38 @@ from .ingest import DEFAULT_DB
 from .config import SIGMA_AJUSTE_DEFAULT, SIGMA_R_REF   # fonte única dos coeficientes (arquitetura)
 
 
+import unicodedata as _ud
+# Apelidos PT -> EN (nomes do martj42 são em inglês; a UI é em PT). Normaliza sem acento/caixa.
+_PT_ALIAS = {
+    "brasil": "Brazil", "alemanha": "Germany", "espanha": "Spain", "franca": "France",
+    "inglaterra": "England", "belgica": "Belgium", "croacia": "Croatia", "holanda": "Netherlands",
+    "paises baixos": "Netherlands", "japao": "Japan", "suica": "Switzerland", "marrocos": "Morocco",
+    "coreia do sul": "South Korea", "coreia": "South Korea", "estados unidos": "United States",
+    "eua": "United States", "mexico": "Mexico", "arabia saudita": "Saudi Arabia", "catar": "Qatar",
+    "africa do sul": "South Africa", "equador": "Ecuador", "uruguai": "Uruguay", "cabo verde": "Cape Verde",
+    "ira": "Iran", "nova zelandia": "New Zealand", "egito": "Egypt", "tunisia": "Tunisia",
+    "argelia": "Algeria", "austria": "Austria", "jordania": "Jordan", "noruega": "Norway",
+    "iraque": "Iraq", "escocia": "Scotland", "gana": "Ghana", "panama": "Panama", "turquia": "Turkey",
+    "australia": "Australia", "paraguai": "Paraguay", "costa do marfim": "Ivory Coast",
+    "curacao": "Curaçao", "haiti": "Haiti", "uzbequistao": "Uzbekistan", "colombia": "Colombia",
+    "republica democratica do congo": "DR Congo", "congo": "DR Congo", "portugal": "Portugal",
+    "suecia": "Sweden", "republica tcheca": "Czech Republic", "tchequia": "Czech Republic",
+    "bosnia": "Bosnia and Herzegovina", "bosnia e herzegovina": "Bosnia and Herzegovina",
+    "senegal": "Senegal",
+}
+
+
+def _norm_name(s):
+    s = _ud.normalize("NFKD", (s or "").strip().lower())
+    return "".join(c for c in s if not _ud.combining(c))
+
+
 def _team(conn, name):
+    canon = _PT_ALIAS.get(_norm_name(name), name)   # aceita "Brasil", "Alemanha", "México"…
     return conn.execute(
         """SELECT t.team_id, t.name, r.elo, r.sigma_r, r.n_games, r.provisional
            FROM ratings_current r JOIN teams t USING (team_id)
-           WHERE lower(t.name) = lower(?)""", (name,)).fetchone()
+           WHERE lower(t.name) = lower(?)""", (canon,)).fetchone()
 
 
 def _suggest(conn, name):

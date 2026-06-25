@@ -96,7 +96,7 @@ def team_form(conn, team_id: int, before_date: str, p: FeatureParams):
 
 
 def run(conn, params: FeatureParams = FeatureParams(),
-        elo_params: EloParams = EloParams(), use_glicko: bool = False) -> dict:
+        elo_params: EloParams = EloParams(), use_glicko: bool = False, incremental: bool = False) -> dict:
     """Monta match_features para todos os jogos. Idempotente. Exige elo_engine antes.
 
     use_glicko (candidato P-B/D-42, OFF por padrão): usa o RD de Glicko-1 PIT
@@ -111,7 +111,14 @@ def run(conn, params: FeatureParams = FeatureParams(),
     if use_glicko:
         from .sigma_glicko import run_pit
         glicko_pit = run_pit(conn)   # {match_id: (rd_home, rd_away)} PIT (anti look-ahead)
-    conn.execute("DELETE FROM match_features")
+    # incremental (D-72): só jogos AINDA sem feature. Correto pela invariância point-in-time
+    # (feature de jogo antigo NÃO muda quando entram jogos novos). Acelera o "Atualizar" de
+    # 12 min p/ segundos. Pressupõe append-only (jogos novos são os mais recentes — vale na Copa);
+    # após CORREÇÃO de jogo antigo no snapshot, rode um rebuild completo (incremental=False).
+    if incremental:
+        done = {r[0] for r in conn.execute("SELECT match_id FROM match_features")}
+    else:
+        conn.execute("DELETE FROM match_features"); done = set()
     rows = conn.execute(
         """SELECT m.match_id, m.date, m.home_team_id, m.away_team_id,
                   mr.dr AS dr_elo, mr.home_n_pre, mr.away_n_pre
@@ -120,6 +127,8 @@ def run(conn, params: FeatureParams = FeatureParams(),
     ).fetchall()
     n = 0
     for r in rows:
+        if r["match_id"] in done:
+            continue
         fh, dh, nh_f = team_form(conn, r["home_team_id"], r["date"], params)
         fa, da, na_f = team_form(conn, r["away_team_id"], r["date"], params)
         if glicko_pit is not None:

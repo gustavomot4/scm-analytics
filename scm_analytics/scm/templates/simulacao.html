@@ -1,5 +1,6 @@
 <!doctype html><html lang="pt-br"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%232563eb'/><text x='16' y='22' font-size='17' font-weight='700' text-anchor='middle' fill='white' font-family='Segoe UI,Arial'>S</text></svg>">
 <title>SCM Analytics — Simulação da Copa 2026</title>
 <style>
  :root{--bg:#fff;--panel:#f7f8fa;--text:#1c1f23;--muted:#6b7280;--border:#e5e7eb;--accent:#2563eb;--accent-weak:#eef3ff;--radius:8px}
@@ -21,6 +22,8 @@
  .barcell{position:relative} .barcell i{position:absolute;left:0;top:0;bottom:0;background:var(--accent-weak);z-index:0}
  .barcell span{position:relative;z-index:1} .foot{color:var(--muted);font-size:12px;margin-top:16px}
  .meta{color:var(--muted);font-size:12px;margin-top:8px}
+ .pbar{height:8px;background:var(--panel);border:1px solid var(--border);border-radius:999px;overflow:hidden;margin-top:6px}
+ .pbar i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s linear}
  .app{display:flex;min-height:100vh}
  .sidebar{width:210px;flex:none;background:var(--panel);border-right:1px solid var(--border);padding:16px 12px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
  .sb-brand{font-weight:600;font-size:15px;padding:4px 8px 16px;letter-spacing:-.01em}
@@ -30,61 +33,72 @@
  .sb-nav a:hover{background:#eceff3}
  .sb-nav a.active{background:var(--accent-weak);color:var(--accent);font-weight:500}
  .sb-foot{margin-top:auto;color:var(--muted);font-size:11px;padding-top:12px;border-top:1px solid var(--border)}
- .sb-update{width:100%;height:32px;margin-bottom:6px;border:1px solid #d2d6db;border-radius:6px;background:#fff;color:var(--text);font:inherit;font-size:13px;cursor:pointer}
- .sb-update:hover{background:#eceff3} .sb-update:disabled{opacity:.6;cursor:default}
- .sb-updmsg{font-size:11px;color:var(--muted);margin-bottom:8px;min-height:13px}
  .content{flex:1;min-width:0}
  @media(max-width:720px){.app{flex-direction:column}.sidebar{width:auto;height:auto;position:static;flex-direction:row;align-items:center;gap:8px;overflow-x:auto;padding:8px 12px}.sb-brand{padding:0 8px 0 4px;white-space:nowrap}.sb-brand span{display:none}.sb-nav{flex-direction:row}.sb-foot{display:none}}
+
+  /* P7: dark mode ADITIVO (só no modo escuro do SO; não afeta o claro). Sobrescreve as vars
+     e as superfícies que eram brancas fixas. */
+  @media (prefers-color-scheme: dark){
+    :root{--bg:#0f1115;--panel:#171a21;--text:#e6e8eb;--muted:#98a2b3;--border:#272c36;
+      --border-strong:#39404c;--accent:#4f8cff;--accent-weak:#18233b;--accent-strong:#6ba0ff;
+      --win:#4f8cff;--draw:#8a93a3;--loss:#aeb6c2}
+    body{background:var(--bg);color:var(--text)}
+    input,select,textarea{background:#11151c;color:var(--text);border-color:var(--border-strong)}
+    .result,.stat,.card,.m,.mktcmp,.tabs button,.btn,.ctl button,.chip{background:var(--panel)}
+    .sidebar{background:var(--panel)}
+    .error,.warn{background:#2a1416;border-color:#5a2a2a;color:#f3b6b6}
+  }
 </style></head><body>
 <div class="app">
-<aside class="sidebar">
-  <div class="sb-brand">SCM Analytics<span>Copa 2026</span></div>
-  <nav class="sb-nav">
-    <a href="/">Prever confronto</a>
-    <a href="/simulacao" class="active">Simular Copa</a>
-    <a href="/bracket">Chaveamento</a>
-    <a href="/prospectivo">Prospectivo</a>
-  </nav>
-  <div class="sb-foot">
-    {% include '_update_widget.html' %}
-    <div id="model"></div><div>Probabilidade, não certeza.</div>
-  </div>
-</aside>
+{% set active='sim' %}
+{% include '_sidebar.html' %}
 <div class="content">
 <main>
  <h1>Quem tem mais chance de ser campeão?</h1>
  <p class="sub">Monte Carlo do torneio a partir do Elo e do modelo. Insight, não previsão validada — probabilidade, não certeza.</p>
  <div class="ctl">
-   <div><label for="sims">Simulações</label><input type="text" id="sims" value="5000" class="tnum"></div>
+   <div><label for="sims">Simulações</label><input type="number" id="sims" value="2000" min="200" max="50000" step="500" inputmode="numeric" class="tnum"></div>
    <button id="go">Simular torneio</button>
  </div>
  <div class="warn" id="warn"></div>
+ <div id="pwrap" style="display:none;max-width:380px;margin-top:12px"><div class="sub" id="pmsg" style="margin:0">Simulando…</div><div class="pbar"><i id="pbar"></i></div><div class="sub" style="margin:6px 0 0;font-size:11px">A 1ª vez calcula; depois fica em cache (instantâneo).</div></div>
  <div class="meta" id="meta"></div>
  <table id="tbl" style="display:none"><thead><tr>
    <th>#</th><th>Seleção</th><th class="r">Elo</th><th class="r">Campeão</th><th class="r">Final</th><th class="r">Semi</th><th class="r">Passa 1ª fase</th>
  </tr></thead><tbody id="rows"></tbody></table>
- <div class="foot">Empates do mata-mata resolvidos pelo termo do contrato (§3.2, ε=0,03). Chaveamento por sorteio aleatório (não modela a tabela posicional exata dos terceiros). Jogos já disputados são travados.</div>
+ <div class="foot">Empates do mata-mata resolvidos pelo termo do contrato (§3.2, ε=0,03). Chaveamento OFICIAL da FIFA (R32 fixos; 3ºs alocados pela elegibilidade do Anexo C). Altitude entra só nos jogos de grupo; mata-mata neutro. Jogos já disputados são travados.</div>
 </main>
 </div></div>
 <script>
  const $=id=>document.getElementById(id);
- async function sim(){
-   $('go').disabled=true; $('go').textContent='Simulando…'; $('warn').classList.remove('show');
-   try{
-     const d=await (await fetch('/api/simulate?sims='+encodeURIComponent($('sims').value||5000))).json();
-     if(d.erro){ $('warn').textContent=d.erro; $('warn').classList.add('show'); return; }
-     if(d.warnings && d.warnings.length){ $('warn').innerHTML='Sorteio incompleto — resultado ilustrativo:<br>• '+d.warnings.join('<br>• '); $('warn').classList.add('show'); }
-     $('meta').textContent=d.n_sims.toLocaleString()+' torneios · modelo '+d.model+' · '+d.n_played_locked+' jogos travados';
-     const max=Math.max(...d.table.map(r=>r.p_champion))||1;
-     $('rows').innerHTML=d.table.slice(0,32).map((r,i)=>
-       `<tr><td>${i+1}</td><td>${r.team}</td><td class="r tnum">${r.elo}</td>`+
-       `<td class="r tnum barcell"><i style="width:${(r.p_champion/max*100).toFixed(0)}%"></i><span>${(r.p_champion*100).toFixed(1)}%</span></td>`+
-       `<td class="r tnum">${(r.p_final*100).toFixed(1)}%</td><td class="r tnum">${(r.p_semi*100).toFixed(1)}%</td>`+
-       `<td class="r tnum">${(r.p_advance*100).toFixed(1)}%</td></tr>`).join('');
-     $('tbl').style.display='';
-   }catch(e){ $('warn').textContent='Falha ao simular.'; $('warn').classList.add('show'); }
-   finally{ $('go').disabled=false; $('go').textContent='Simular torneio'; }
+ let POLL=null;
+ function renderSim(d){
+   if(d.warnings && d.warnings.length){ $('warn').innerHTML='Sorteio incompleto — resultado ilustrativo:<br>• '+d.warnings.join('<br>• '); $('warn').classList.add('show'); }
+   $('meta').textContent=d.n_sims.toLocaleString()+' torneios · modelo '+d.model+' · '+d.n_played_locked+' jogos travados';
+   const max=Math.max(...d.table.map(r=>r.p_champion))||1;
+   $('rows').innerHTML=d.table.slice(0,32).map((r,i)=>
+     `<tr><td>${i+1}</td><td>${r.team}</td><td class="r tnum">${r.elo}</td>`+
+     `<td class="r tnum barcell"><i style="width:${(r.p_champion/max*100).toFixed(0)}%"></i><span>${(r.p_champion*100).toFixed(1)}%</span></td>`+
+     `<td class="r tnum">${(r.p_final*100).toFixed(1)}%</td><td class="r tnum">${(r.p_semi*100).toFixed(1)}%</td>`+
+     `<td class="r tnum">${(r.p_advance*100).toFixed(1)}%</td></tr>`).join('');
+   $('tbl').style.display='';
  }
+ async function sim(){
+   if(POLL){clearInterval(POLL);POLL=null;}
+   $('go').disabled=true; $('go').textContent='Simulando…'; $('warn').classList.remove('show');
+   $('pwrap').style.display=''; $('pbar').style.width='3%'; $('pmsg').textContent='Simulando…';
+   const sims=encodeURIComponent($('sims').value||2000);
+   async function tick(){
+     let d;
+     try{ d=await (await fetch('/api/simulate?sims='+sims)).json(); }
+     catch(e){ if(POLL){clearInterval(POLL);POLL=null;} $('warn').textContent='Falha ao simular.'; $('warn').classList.add('show'); $('pwrap').style.display='none'; reset(); return; }
+     if(d.erro){ if(POLL){clearInterval(POLL);POLL=null;} $('warn').textContent=d.erro; $('warn').classList.add('show'); $('pwrap').style.display='none'; reset(); return; }
+     if(d.running){ $('pbar').style.width=Math.max(3,d.pct||0)+'%'; $('pmsg').textContent='Simulando… '+(d.pct||0)+'%'; return; }
+     if(d.done){ if(POLL){clearInterval(POLL);POLL=null;} $('pwrap').style.display='none'; renderSim(d.result); reset(); }
+   }
+   tick(); POLL=setInterval(tick,700);
+ }
+ function reset(){ $('go').disabled=false; $('go').textContent='Simular torneio'; }
  $('go').addEventListener('click',sim);
  fetch('/api/teams').then(r=>r.json()).then(d=>{$('model').textContent='modelo '+d.model;}).catch(()=>{});
 </script></body></html>

@@ -1,59 +1,122 @@
-{# Componente ÚNICO do botão "Atualizar dados" (incluído via {% include %} nas 4 telas).
-   Fonte única p/ não divergir. Mostra barra de progresso + etapa (i/5) + tempo decorrido. #}
+{# Pop-up FLUTUANTE e PERSISTENTE de atualização (incluído nas 4 telas via {% include %}).
+   position:fixed -> flutua fora da sidebar; faz POLL do estado do servidor a CADA carga de
+   página, então o progresso NÃO some ao trocar de tela (o estado vive no servidor, _UPDATE).
+   Minimizar/mostrar com memória (localStorage). Barra com % + logs ao vivo. #}
 <style>
-  .upd{margin-bottom:10px}
-  .upd-btn{width:100%;height:32px;border:1px solid var(--border-strong,#d2d6db);border-radius:6px;
-    background:#fff;color:var(--text,#1c1f23);font:inherit;font-size:13px;cursor:pointer}
-  .upd-btn:hover{background:#eceff3} .upd-btn:disabled{opacity:.6;cursor:default}
-  .upd-prog{display:none;margin-top:8px} .upd-prog.show{display:block}
-  .upd-bar{height:7px;background:var(--panel,#f7f8fa);border:1px solid var(--border,#e5e7eb);
+  .updpop{position:fixed;right:16px;bottom:16px;z-index:9999;font-family:inherit}
+  .updpop[data-min="1"] .updcard{display:none}
+  .updpop[data-min="0"] .updpill{display:none}
+  .updcard{width:290px;background:#fff;border:1px solid var(--border-strong,#d2d6db);
+    border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.16);overflow:hidden}
+  .updhead{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;
+    background:var(--panel,#f7f8fa);border-bottom:1px solid var(--border,#e5e7eb)}
+  .updtitle{font-weight:600;font-size:12px;color:var(--text,#1c1f23)}
+  .updx{border:none;background:none;cursor:pointer;font-size:13px;color:var(--muted,#6b7280);
+    width:24px;height:24px;border-radius:5px;line-height:1}
+  .updx:hover{background:#e5e7eb}
+  .updbody{padding:10px}
+  .upd-btn{width:100%;height:34px;border:1px solid var(--accent,#2563eb);border-radius:7px;
+    background:var(--accent,#2563eb);color:#fff;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+  .upd-btn:hover{filter:brightness(.96)} .upd-btn:disabled{opacity:.6;cursor:default}
+  .upd-prog{display:none} .upd-prog.show{display:block}
+  .upd-bar{height:8px;background:var(--panel,#eef1f4);border:1px solid var(--border,#e5e7eb);
     border-radius:999px;overflow:hidden}
-  .upd-bar i{display:block;height:100%;width:0;background:var(--accent,#2563eb);transition:width .4s ease}
-  .upd-bar i.busy{background-image:linear-gradient(90deg,var(--accent,#2563eb) 0 60%,#7aa7f6 60% 100%);
+  .upd-bar i{display:block;height:100%;width:0;background:var(--accent,#2563eb);transition:width .25s linear}
+  .upd-bar i.busy{background-image:linear-gradient(90deg,var(--accent,#2563eb) 0 60%,#7aa7f6 60%);
     background-size:18px 100%;animation:upd-stripe 1s linear infinite}
   @keyframes upd-stripe{from{background-position:0 0}to{background-position:18px 0}}
-  .upd-row{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:var(--muted,#6b7280);margin-top:5px}
-  .upd-row b{color:var(--text,#1c1f23);font-weight:600}
-  .upd-done{color:#15803d;font-weight:600} .upd-err{color:#b91c1c;font-weight:600}
+  .upd-row{display:flex;justify-content:space-between;font-size:11px;color:var(--muted,#6b7280);margin-top:6px}
+  .updstep{font-size:11px;color:var(--text,#1c1f23);margin-top:6px;min-height:14px}
+  .updlog{margin:8px 0 0;padding:6px 8px;background:#0d1117;color:#9fb4c8;border-radius:6px;
+    font-family:ui-monospace,Menlo,Consolas,monospace;font-size:10.5px;line-height:1.45;
+    max-height:88px;overflow:auto;white-space:pre-wrap}
+  .updreload{margin-top:8px;background:#fff;color:var(--accent,#2563eb)}
+  .upd-done{color:#15803d;font-weight:700} .upd-err{color:#b91c1c;font-weight:700}
+  .updpill{display:flex;align-items:center;gap:7px;height:40px;padding:0 16px;cursor:pointer;
+    border:1px solid var(--border-strong,#d2d6db);border-radius:999px;background:#fff;
+    box-shadow:0 4px 16px rgba(0,0,0,.12);font:inherit;font-size:13px;font-weight:600;color:var(--text,#1c1f23)}
+  .updpill:hover{background:#f3f4f6}
+  .updpop[data-run="1"] .updpill{border-color:var(--accent,#2563eb);color:var(--accent,#2563eb)}
+  .updpop[data-run="1"] .updpill .updspin{animation:updspin 1.1s linear infinite;display:inline-block}
+  @keyframes updspin{to{transform:rotate(360deg)}}
+
+  @media(max-width:560px){ .updpop{right:10px;bottom:10px} .updcard{width:calc(100vw - 20px);max-width:320px} }
+  @media (prefers-color-scheme: dark){
+    .updcard,.updpill{background:#171a21;color:#e6e8eb;border-color:#39404c}
+    .updhead{background:#11151c;border-color:#272c36}
+    .upd-bar{background:#11151c;border-color:#272c36}
+  }
 </style>
-<div class="upd">
-  <button class="upd-btn" id="btnUpd" title="Baixa dados novos e reconstrói o modelo (~1–2 min)">↻ Atualizar dados</button>
-  <div class="upd-prog" id="updProg">
-    <div class="upd-bar"><i id="updBar"></i></div>
-    <div class="upd-row"><span id="updStep">…</span><span id="updTime" class="tnum"></span></div>
+<div class="updpop" id="updPop" data-min="0" data-run="0">
+  <button class="updpill" id="updPill" title="Atualização do sistema">
+    <span class="updspin">↻</span><span>Atualizar</span><span id="updPillPct"></span>
+  </button>
+  <div class="updcard" id="updCard">
+    <div class="updhead">
+      <span class="updtitle">↻ Atualização do sistema</span>
+      <button class="updx" id="updMin" title="Ocultar (continua rodando)">▽</button>
+    </div>
+    <div class="updbody">
+      <button class="upd-btn" id="btnUpd" title="Baixa dados novos e reconstrói o modelo (~1–2 min). Pode continuar navegando.">↻ Atualizar tudo</button>
+      <div class="upd-prog" id="updProg">
+        <div class="upd-bar"><i id="updBar"></i></div>
+        <div class="upd-row"><span id="updPct" class="tnum">0%</span><span id="updTime" class="tnum"></span></div>
+        <div class="updstep" id="updStep"></div>
+        <pre class="updlog" id="updLog"></pre>
+        <button class="upd-btn updreload" id="updReload" style="display:none">↻ Recarregar página</button>
+      </div>
+    </div>
   </div>
 </div>
 <script>
 (function(){
-  const b=document.getElementById('btnUpd'), prog=document.getElementById('updProg'),
-        bar=document.getElementById('updBar'), step=document.getElementById('updStep'),
-        tm=document.getElementById('updTime');
-  if(!b) return;
-  const N=5; let t0=0, timer=null;
-  const fmt=s=>{s=Math.floor(s);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');};
-  function setBar(pctv, busy){ bar.style.width=Math.max(4,pctv)+'%'; bar.classList.toggle('busy', !!busy); }
-  function stop(){ if(timer){clearInterval(timer);timer=null;} }
-  b.addEventListener('click', async()=>{
-    if(!confirm('Atualizar a base?\n\nBaixa o snapshot novo do martj42, reconstrói o Elo, monta as '
-      +'features e gera as previsões. Costuma levar ~1–2 min (a etapa de features é a mais demorada). '
-      +'Evite prever/simular enquanto roda.')) return;
-    b.disabled=true; prog.classList.add('show'); setBar(4,true); step.innerHTML='<b>Iniciando…</b>';
-    t0=Date.now(); tm.textContent='0:00'; timer=setInterval(()=>{tm.textContent=fmt((Date.now()-t0)/1000);},1000);
+  const pop=document.getElementById('updPop'); if(!pop) return;
+  const pill=document.getElementById('updPill'), pillPct=document.getElementById('updPillPct'),
+        btn=document.getElementById('btnUpd'), prog=document.getElementById('updProg'),
+        bar=document.getElementById('updBar'), pct=document.getElementById('updPct'),
+        tm=document.getElementById('updTime'), stepEl=document.getElementById('updStep'),
+        logEl=document.getElementById('updLog'), reload=document.getElementById('updReload'),
+        minBtn=document.getElementById('updMin');
+  const START={1:3,2:15,3:28,4:42,5:90}, CEIL={1:13,2:26,3:40,4:88,5:99};
+  let S={state:'idle',i:0,n:5,step:'',logs:[],elapsed:0}, disp=0;
+  const fmt=s=>{s=Math.floor(s||0);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');};
+  function setMin(m){ pop.dataset.min=m?'1':'0'; try{localStorage.setItem('scm_upd_min',m?'1':'0');}catch(e){} }
+  setMin(localStorage.getItem('scm_upd_min')==='1');
+  minBtn.onclick=()=>setMin(true); pill.onclick=()=>setMin(false); reload.onclick=()=>location.reload();
+  btn.onclick=async()=>{
+    if(!confirm('Atualizar tudo?\n\nBaixa o snapshot novo (martj42), reconstrói o Elo, monta as '
+      +'features e gera as previsões (~1–2 min). Pode continuar navegando — o progresso fica aqui '
+      +'e segue em todas as telas.')) return;
+    btn.disabled=true;
+    try{ await fetch('/api/update',{method:'POST'}); }catch(e){}
+  };
+  // animação suave: faz a barrinha "andar" mesmo durante a etapa longa (features)
+  setInterval(()=>{
+    if(S.state==='running'){ const i=S.i||1; disp=Math.max(disp,START[i]||3);
+      const c=CEIL[i]||99; disp=Math.min(disp+(c-disp)*0.06, c); }
+    else if(S.state==='done'){ disp=100; } else if(S.state==='idle'){ disp=0; }
+    bar.style.width=Math.max(2,disp)+'%';
+    const p=Math.round(disp); pct.textContent=p+'%';
+    pillPct.textContent=(S.state==='running')?'· '+p+'%':'';
+  },250);
+  // POLL do estado do servidor (1s) — SEMPRE ativo => o progresso aparece em QUALQUER tela
+  async function poll(){
     try{
-      const r=await (await fetch('/api/update',{method:'POST'})).json();
-      if(r.erro){ step.innerHTML='<b class="upd-err">'+r.erro+'</b>'; b.disabled=false; stop(); return; }
-      const poll=setInterval(async()=>{ try{
-        const s=await (await fetch('/api/update/status')).json();
-        const i=s.i||0;
-        setBar(Math.round(i/N*100), s.state==='running');
-        step.innerHTML='<b>Passo '+i+'/'+N+'</b> — '+(s.step||'');
-        if(s.state==='done'){ clearInterval(poll); stop(); setBar(100,false);
-          step.innerHTML='<b class="upd-done">✓ Base atualizada</b> — recarregando…';
-          setTimeout(()=>location.reload(),1400); }
-        else if(s.state==='error'){ clearInterval(poll); stop();
-          step.innerHTML='<b class="upd-err">Erro:</b> '+(s.message||'').slice(0,90); b.disabled=false; }
-      }catch(e){} }, 1200);
-    }catch(e){ step.innerHTML='<b class="upd-err">Falha ao iniciar.</b>'; b.disabled=false; stop(); }
-  });
+      const s=await (await fetch('/api/update/status')).json(); S=s;
+      const running=s.state==='running', done=s.state==='done', err=s.state==='error';
+      pop.dataset.run = running?'1':'0';
+      btn.style.display = running?'none':'block'; btn.disabled=running;
+      prog.classList.toggle('show', running||done||err);
+      bar.classList.toggle('busy', running);
+      reload.style.display = done?'block':'none';
+      tm.textContent = (running||done)? fmt(s.elapsed):'';
+      if(err){ stepEl.innerHTML='<b class="upd-err">Erro:</b> '+((s.message||'').slice(0,120)); }
+      else if(done){ stepEl.innerHTML='<b class="upd-done">✓ Base atualizada</b> — recarregue para ver os números novos.'; }
+      else if(running){ stepEl.innerHTML='<b>Passo '+(s.i||0)+'/'+(s.n||5)+'</b> — '+(s.step||''); }
+      else { stepEl.textContent=''; }
+      const L=(s.logs||[]).slice(-6); logEl.textContent=L.join('\n'); logEl.scrollTop=logEl.scrollHeight;
+    }catch(e){}
+  }
+  poll(); setInterval(poll,1000);
 })();
 </script>

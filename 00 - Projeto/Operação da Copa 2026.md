@@ -50,3 +50,29 @@ Tudo roda local (`cd scm_analytics`). Nomes de seleção no padrão **martj42 (i
 
 ## Relacionado
 [[Como rodar o sistema]] · [[MODELO_FINAL]] · [[Decisoes tecnicas]] · [[Registro de previsoes]] · [[BACKLOG]]
+
+---
+
+## ▶ Operar e medir a Copa — runbook + placar (2026-06-21)
+
+**O ponto:** backtest bom ≠ previsor provado. O juiz real é o **Brier da Copa medido jogo a jogo**.
+Comando novo (repetível, a cada rodada):
+```
+python -m scm.report --copa     # Brier do modelo na Copa 2026 vs uniforme (IC) e vs mercado
+```
+
+**Medição REAL até agora (36 jogos disputados, v0.4):**
+- Brier modelo **0,5868** vs uniforme **0,6667** — melhor na média (+0,080), mas **IC95 [-0,067, +0,219] CRUZA ZERO**.
+- vs mercado (12 jogos com odds): modelo **0,640** vs mercado **0,566** (mercado à frente).
+- **Leitura honesta:** com 36 jogos **ainda não dá para afirmar** que bate nem o uniforme nesta Copa
+  (o backtest de 2.253 jogos dizia que sim — mas 1 torneio é ruído). O IC fecha conforme a Copa
+  avança. É exatamente o "desconhecido" que só a operação revela.
+
+**Loop por rodada (na sua máquina):**
+1. **ANTES dos jogos:** registre a rodada (Prospectivo → "Registrar rodada" / "Registrar um jogo")
+   e, se tiver, ingira as odds de fechamento (`dados/odds_copa_disputados.csv` → `scm.odds ingest`).
+2. **DEPOIS dos jogos:** botão **"Atualizar tudo"** (baixa placares) → Prospectivo → **"Buscar
+   resultados"** (settle) → veja o Brier do registro; e rode **`python -m scm.report --copa`** +
+   **`python -m scm.odds bench --major`** p/ o placar modelo vs mercado.
+3. **Critério:** o modelo "se prova" quando, com a Copa avançada, o ganho vs uniforme tiver **IC>0**
+   e o gap pro mercado encolher. Até lá: probabilidade, não certeza.

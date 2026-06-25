@@ -8,7 +8,7 @@ aliases: ["Início", "Home", "Mapa do vault"]
 
 # 🏠 Índice — Sistema de previsão Copa 2026
 
-Vault de **planejamento e execução** de um sistema local e gratuito de previsão de partidas. **O sistema está construído e validado** (modelo `baseline-v0.2.1-altitude`). Para usar: [[Como rodar o sistema]]. Para o contexto: [[CLAUDE]].
+Vault de **planejamento e execução** de um sistema local e gratuito de previsão de partidas. **O sistema está construído e validado** (modelo `baseline-v0.4-ad`). Para usar: [[Como rodar o sistema]]. Para o contexto: [[CLAUDE]].
 
 ## Portas de entrada
 - 🧭 [[CLAUDE]] — contexto completo (objetivo, estado, decisões, próxima tarefa)
@@ -35,6 +35,9 @@ scm_analytics/       código do sistema (Python: motor + interface)
 
 ## Contrato e execução
 [[camada1-planejamento-v5]] (atual) · [[camada1-apendice-formas-v5]] · [[camada1-revisao-v5]] (auditoria) · [[camada1-lacunas]] (pesquisa) · [[camada2-planejamento-v1]] (backtest) · [[camada2-baseline-plano-v1]] (build) · [[Codigo (estrutura)]] (código) · [[Decisoes tecnicas]]
+
+## Auditoria & evolução (2026-06)
+[[Auditoria + plano de melhorias (modelo, 2026-06-20)]] · [[Evolucao v0.4 - perna AD + sigma no torneio (2026-06-20)]] · [[Comparacao com mercado, Opta e EA (2026-06-20)]] · [[Como usar xG (prior de elenco) — turnkey (2026-06-20)]]
 
 ## Previsões registradas ([[06 - Analises]])
 | Data | Jogo | Favorito (ensemble) | Conf. | Modelo | Resultado |

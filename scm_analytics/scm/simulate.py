@@ -278,7 +278,7 @@ def simulate_once(groups, tab, played, rng, p, alt_venues=None, sig=None, ad_lam
     return win[104], finalists, semis, advancers
 
 
-def run(conn, config_path=DEFAULT_CONFIG, n_sims=20000, seed=12345):
+def run(conn, config_path=DEFAULT_CONFIG, n_sims=20000, seed=12345, progress=None):
     cfg, groups = load_config(config_path)
     elos = get_elos(conn)
     sig = get_sigmas(conn)            # P4: incerteza do rating p/ propagar no torneio
@@ -295,8 +295,10 @@ def run(conn, config_path=DEFAULT_CONFIG, n_sims=20000, seed=12345):
     fin = {t: 0 for t in teams}
     semi = {t: 0 for t in teams}
     adv = {t: 0 for t in teams}
-    for _ in range(n_sims):
+    for _i in range(n_sims):
         c, f, s, a = simulate_once(groups, tab, played, rng, p, alt_venues, sig, ad_lam, alpha)
+        if progress and (_i & 511) == 0:
+            progress(_i, n_sims)
         champ[c] += 1
         for t in f: fin[t] += 1
         for t in s: semi[t] += 1

@@ -169,18 +169,61 @@ def btts_report(conn, versao: str, only_major: bool = False) -> dict:
             "bias": mean_pred - rate, "brier": brier, "reliability": rel}
 
 
+def cup_scorecard(conn, versao, edition_from="2026-06-01") -> dict:
+    """Placar REAL da Copa (D-74): Brier do modelo (previsoes point-in-time) nos jogos JA disputados
+    desta edicao vs uniforme (IC bootstrap) e vs mercado (subconjunto com odds). Mede 'tem skill na
+    Copa REAL?', nao no historico. n pequeno no comeco => IC largo (honesto)."""
+    from .backtest_harness import brier, outcome_of, UNIFORM, _boot_ci
+    rows = conn.execute(
+        """SELECT m.home_score hs, m.away_score s, p.p_v, p.p_e, p.p_d,
+                  o.p_home, o.p_draw, o.p_away
+           FROM matches m JOIN predictions p ON p.match_id=m.match_id AND p.versao_modelo=?
+           LEFT JOIN odds_hist o ON o.match_id=m.match_id
+           WHERE m.tournament='FIFA World Cup' AND m.date>=? AND m.home_score IS NOT NULL""",
+        (versao, edition_from)).fetchall()
+    if not rows:
+        return {"n": 0}
+    bm, bu, mk_m, mk_k = [], [], [], []
+    for r in rows:
+        o = outcome_of(r["hs"], r["s"]); md = {"p_v": r["p_v"], "p_e": r["p_e"], "p_d": r["p_d"]}
+        bm.append(brier(md, o)); bu.append(brier(UNIFORM, o))
+        if r["p_home"] is not None:
+            mk_m.append(brier(md, o))
+            mk_k.append(brier({"p_v": r["p_home"], "p_e": r["p_draw"], "p_d": r["p_away"]}, o))
+    n = len(bm); g = [bu[i] - bm[i] for i in range(n)]; lo, hi = _boot_ci(g)
+    out = {"n": n, "brier": sum(bm) / n, "brier_uniforme": sum(bu) / n,
+           "ganho_vs_uniforme": sum(g) / n, "ic_lo": lo, "ic_hi": hi, "bate_uniforme": lo > 0}
+    if mk_m:
+        nm = len(mk_m)
+        out.update(n_odds=nm, brier_modelo_odds=sum(mk_m) / nm, brier_mercado=sum(mk_k) / nm)
+    return out
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description="Relatório de calibração + cobertura de banda.")
     p.add_argument("--db", default=str(DEFAULT_DB))
     p.add_argument("--versao", default=_MODEL)
     p.add_argument("--png", default=None, help="salva reliability diagram (requer matplotlib)")
     p.add_argument("--major", action="store_true", help="só torneios (WC/Euro/Copa América)")
+    p.add_argument("--copa", action="store_true", help="placar REAL da Copa 2026 (modelo vs uniforme vs mercado)")
     p.add_argument("--btts", action="store_true", help="diagnóstico do 'ambos marcam' (viés)")
     args = p.parse_args(argv)
     if not Path(args.db).exists():
         print(f"[erro] SQLite não encontrado: {args.db}. Rode o pipeline antes.")
         return 1
     conn = db.connect(args.db)
+    if args.copa:
+        r = cup_scorecard(conn, args.versao); conn.close()
+        if not r.get("n"):
+            print("sem jogos disputados da Copa 2026 com previsao (rode ingest+predictor)."); return 1
+        print(f"\n  PLACAR DA COPA 2026 - modelo {args.versao} | {r['n']} jogos disputados")
+        print(f"  Brier modelo {r['brier']:.4f}  vs  uniforme {r['brier_uniforme']:.4f}")
+        v = "bate o uniforme (IC>0)" if r["bate_uniforme"] else "IC ainda cruza 0 - amostra pequena"
+        print(f"  ganho vs uniforme {r['ganho_vs_uniforme']:+.4f}  IC95 [{r['ic_lo']:+.4f}, {r['ic_hi']:+.4f}]  -> {v}")
+        if r.get("n_odds"):
+            print(f"  vs MERCADO (n={r['n_odds']} c/ odds): modelo {r['brier_modelo_odds']:.4f}  ·  mercado {r['brier_mercado']:.4f}")
+        print("  (probabilidade, nao certeza; 1 torneio e ruidoso - o IC fecha conforme a Copa avanca.)\n")
+        return 0
     if args.btts:
         r = btts_report(conn, args.versao, only_major=args.major)
         conn.close()

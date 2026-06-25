@@ -132,3 +132,20 @@ a Copa decide; um resultado não fecha a conta.
 
 **Importante (escopo):** isto muda a **simulação** (engine de λ, validado pelo portão). O modelo de
 **1 jogo** (`predict_match`/`predictor`, v0.4-ad) **não muda** — ele já usava a perna AD no ensemble.
+
+---
+
+## Experimento (b) 2026-06-21 — mercado no λ da simulação: ESTRUTURALMENTE INVIÁVEL
+
+Tentativa: blendar o mercado no λ da sim, **igual à perna AD**. **Não dá, por construção:**
+- A perna **AD** gera λ p/ **qualquer** par (de ratings de ataque/defesa) → cobre toda a árvore.
+- O **MERCADO** só precifica jogos **agendados**. A sim precisa de λ p/ **1.128** pares possíveis e
+  p/ um mata-mata **hipotético** (ex.: Morocco×Norway numa quarta) que o mercado **nunca** precificou.
+- Cobertura do mercado p/ as necessidades da sim: **~1,1%** (12 jogos disputados / 1.128 pares).
+
+**Veredito: não há portão a rodar** — o sinal não existe para a maioria dos confrontos (não é que
+falhou o IC; é que o dado não existe). O lugar **validado** do mercado é a **previsão de 1 jogo**
+(`predict_match`, peso 0,20, já ligado) e ele cresce de forma **operacional** (capturar odds +
+`odds bench` a cada rodada). Opção cosmética (não-validável, não recomendo embutir): misturar a
+**tabela final** de título 80/20 com as odds de título do mercado — isso é "concordar com o
+mercado", não um ganho de modelo.

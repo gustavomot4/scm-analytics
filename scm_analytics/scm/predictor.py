@@ -302,7 +302,7 @@ def predict(dr: float, sigma_dr: float, p: PredictParams = PredictParams(),
     }
 
 
-def run(conn, params: PredictParams = PredictParams()) -> dict:
+def run(conn, params: PredictParams = PredictParams(), incremental: bool = False) -> dict:
     from .factors import gd_alt  # termo puro (arquitetura: ciclo predictor↔altitude quebrado)
     db.init_schema(conn)
     if conn.execute("SELECT COUNT(*) FROM match_features").fetchone()[0] == 0:
@@ -316,7 +316,11 @@ def run(conn, params: PredictParams = PredictParams()) -> dict:
             from .attack_defense import xg_priors
             _pri = xg_priors(conn) or None
         ad_pit = run_pit(conn, priors=_pri)
-    conn.execute("DELETE FROM predictions WHERE versao_modelo = ?", (MODEL_VERSION,))
+    if incremental:   # D-72: só jogos ainda sem previsão desta versão (igual results, +rápido)
+        done = {r[0] for r in conn.execute(
+            "SELECT match_id FROM predictions WHERE versao_modelo = ?", (MODEL_VERSION,))}
+    else:
+        conn.execute("DELETE FROM predictions WHERE versao_modelo = ?", (MODEL_VERSION,)); done = set()
     rows = conn.execute(
         """SELECT mf.match_id, mf.dr_adj, mf.sigma_dr, m.city,
                   th.name AS home, ta.name AS away
@@ -326,6 +330,8 @@ def run(conn, params: PredictParams = PredictParams()) -> dict:
     ).fetchall()
     n = 0
     for r in rows:
+        if r["match_id"] in done:
+            continue
         ga = gd_alt(r["city"], r["home"], r["away"])
         ad_ved = None
         if ad_pit is not None:
@@ -367,50 +373,69 @@ if __name__ == "__main__":
 
 
 def markets(lam_a: float, lam_b: float, max_goals: int = 10) -> dict:
-    """Mercados derivados da MESMA matriz Poisson (nada novo no modelo).
+    """Mercados derivados da MESMA matriz Poisson de GOLS (nada novo no modelo).
 
-    over/under (0.5–4.5), totais por time, não-sofrer-gol (clean sheet),
-    dupla chance, handicap (vencer por 2+), distribuição do total e
-    'quem marca primeiro' via Poisson concorrente:
-        P(A 1º) = λ_A/(λ_A+λ_B) · (1 − P(0 gol));  P(0 gol) = e^-(λ_A+λ_B).
-    O 'quem marca 1º' assume taxa de gols constante no tempo (aproximação).
+    Tudo e funcao do placar de tempo normal: over/under (qualquer linha), par/impar, total
+    exato e faixas (multigols), totais por time, vencer-sem-sofrer, empate-anula, handicap/
+    margem, combinadas (resultado+ambos / resultado+over), grade de placar exato e quem marca 1o.
+    Cartoes/escanteios/tempo NAO saem daqui (exigem dado proprio). Backward-compatible: mantem
+    as chaves antigas (over/under/btts/team_*_over/clean_sheet/double_chance/handicap/first_to_score).
     """
     pa = [_pois(i, lam_a) for i in range(max_goals + 1)]
     pb = [_pois(j, lam_b) for j in range(max_goals + 1)]
+    M = [[pa[i] * pb[j] for j in range(max_goals + 1)] for i in range(max_goals + 1)]
     total = [0.0] * (2 * max_goals + 1)
-    hcap_a2 = hcap_b2 = 0.0
     for i in range(max_goals + 1):
         for j in range(max_goals + 1):
-            pij = pa[i] * pb[j]
-            total[i + j] += pij
-            if i - j >= 2:
-                hcap_a2 += pij
-            elif j - i >= 2:
-                hcap_b2 += pij
-    pv = sum(pa[i] * pb[j] for i in range(max_goals + 1) for j in range(i))            # i>j
-    pe = sum(pa[k] * pb[k] for k in range(max_goals + 1))
-    pd = max(0.0, 1.0 - pv - pe)
+            total[i + j] += M[i][j]
 
     def over(line):
         return sum(total[k] for k in range(len(total)) if k > line)
 
-    lines = (0.5, 1.5, 2.5, 3.5, 4.5)
+    def band(lo, hi):
+        return sum(total[k] for k in range(lo, hi + 1))
+
+    def cell(cond):
+        return sum(M[i][j] for i in range(max_goals + 1) for j in range(max_goals + 1) if cond(i, j))
+
+    pv = cell(lambda i, j: i > j)
+    pe = cell(lambda i, j: i == j)
+    pd = max(0.0, 1.0 - pv - pe)
     a0, b0 = pa[0], pb[0]
+    lines = (0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5)
+    odd = sum(total[k] for k in range(len(total)) if k % 2 == 1)
     s = lam_a + lam_b
     no_goal = math.exp(-s)
     first_a = (lam_a / s) * (1 - no_goal) if s > 1e-9 else 0.0
     first_b = (lam_b / s) * (1 - no_goal) if s > 1e-9 else 0.0
-    tg = [(str(k), total[k]) for k in range(5)] + [("5+", sum(total[5:]))]
+    btts = (1 - a0) * (1 - b0)
     return {
         "over": {str(l): over(l) for l in lines},
         "under": {str(l): 1.0 - over(l) for l in lines},
-        "btts": (1 - a0) * (1 - b0),
-        "team_a_over": {"0.5": 1 - a0, "1.5": max(0.0, 1 - a0 - pa[1])},
-        "team_b_over": {"0.5": 1 - b0, "1.5": max(0.0, 1 - b0 - pb[1])},
-        "clean_sheet_a": b0,   # A não sofre gol  = B faz 0
-        "clean_sheet_b": a0,   # B não sofre gol  = A faz 0
+        "btts": btts, "btts_no": 1.0 - btts,
+        "odd_even": {"odd": odd, "even": 1.0 - odd},
+        "total_exato": {**{str(k): total[k] for k in range(7)}, "7+": sum(total[7:])},
+        "multigols": {"0-1": band(0, 1), "1-2": band(1, 2), "2-3": band(2, 3),
+                      "1-3": band(1, 3), "2-4": band(2, 4), "4+": over(3.5)},
+        "team_a_over": {str(l): sum(pa[k] for k in range(int(l) + 1, max_goals + 1)) for l in (0.5, 1.5, 2.5, 3.5)},
+        "team_b_over": {str(l): sum(pb[k] for k in range(int(l) + 1, max_goals + 1)) for l in (0.5, 1.5, 2.5, 3.5)},
+        "clean_sheet_a": b0, "clean_sheet_b": a0,
+        "win_to_nil": {"a": cell(lambda i, j: i > j and j == 0), "b": cell(lambda i, j: j > i and i == 0)},
+        "dnb": {"a": pv / (1 - pe) if pe < 1 else 0.0, "b": pd / (1 - pe) if pe < 1 else 0.0},
         "double_chance": {"1X": pv + pe, "12": pv + pd, "X2": pe + pd},
-        "handicap": {"a_-1.5": hcap_a2, "b_-1.5": hcap_b2},   # vencer por 2+ gols
+        "handicap": {"a_-1.5": cell(lambda i, j: i - j >= 2), "b_-1.5": cell(lambda i, j: j - i >= 2),
+                     "a_-2.5": cell(lambda i, j: i - j >= 3), "b_-2.5": cell(lambda i, j: j - i >= 3),
+                     "a_+1.5": 1.0 - cell(lambda i, j: j - i >= 2), "b_+1.5": 1.0 - cell(lambda i, j: i - j >= 2)},
+        "win_margin": {"a_1": cell(lambda i, j: i - j == 1), "a_2": cell(lambda i, j: i - j == 2),
+                       "a_3+": cell(lambda i, j: i - j >= 3), "b_1": cell(lambda i, j: j - i == 1),
+                       "b_2": cell(lambda i, j: j - i == 2), "b_3+": cell(lambda i, j: j - i >= 3), "draw": pe},
+        "result_btts": {"home_yes": cell(lambda i, j: i > j and j >= 1), "home_no": cell(lambda i, j: i > j and j == 0),
+                        "draw_yes": cell(lambda i, j: i == j and i >= 1), "draw_no": cell(lambda i, j: i == 0 and j == 0),
+                        "away_yes": cell(lambda i, j: j > i and i >= 1), "away_no": cell(lambda i, j: j > i and i == 0)},
+        "result_over25": {"home_o": cell(lambda i, j: i > j and i + j >= 3), "home_u": cell(lambda i, j: i > j and i + j < 3),
+                          "draw_o": cell(lambda i, j: i == j and i + j >= 3), "draw_u": cell(lambda i, j: i == j and i + j < 3),
+                          "away_o": cell(lambda i, j: j > i and i + j >= 3), "away_u": cell(lambda i, j: j > i and i + j < 3)},
         "first_to_score": {"a": first_a, "b": first_b, "none": no_goal},
-        "total_goals": tg,
+        "total_goals": [(str(k), total[k]) for k in range(5)] + [("5+", sum(total[5:]))],
+        "score_grid": [[M[i][j] for j in range(6)] for i in range(6)],
     }

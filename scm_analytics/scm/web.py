@@ -18,8 +18,18 @@ from .ingest import DEFAULT_DB
 
 # Estado do botão "Atualizar dados" (refresh do pipeline). Local, um job por vez.
 # i/n = etapa atual / total (p/ a barra de progresso); step = rótulo legível.
-_UPDATE = {"state": "idle", "step": "", "i": 0, "n": 5, "message": "", "ts": None}
+_UPDATE = {"state": "idle", "step": "", "i": 0, "n": 5, "pct": 0, "message": "",
+           "ts": None, "logs": [], "started": None}
 _UPDATE_LOCK = threading.Lock()
+# pct ao INICIAR cada etapa (features é a mais longa: 42→88). O front faz a barra "andar"
+# suavemente até o teto de cada etapa enquanto ela roda.
+_STEP_PCT = {1: 3, 2: 15, 3: 28, 4: 42, 5: 90}
+
+
+def _log(msg):
+    """Acrescenta uma linha de log (carimbo de hora), mantendo as últimas 40."""
+    line = time.strftime("%H:%M:%S") + "  " + msg
+    _UPDATE["logs"] = (list(_UPDATE.get("logs") or []) + [line])[-40:]
 
 
 def _run_pipeline(db_path, download=True):
@@ -31,9 +41,12 @@ def _run_pipeline(db_path, download=True):
     from . import ingest, elo_engine, features_pit, predictor
 
     def step(i, s):
-        _UPDATE.update(i=i, step=s, ts=time.strftime("%H:%M:%S"))
+        _UPDATE.update(i=i, step=s, pct=_STEP_PCT.get(i, _UPDATE.get("pct", 0)),
+                       ts=time.strftime("%H:%M:%S"))
+        _log(s)
     try:
-        _UPDATE.update(state="running", i=0, message="")
+        _UPDATE.update(state="running", i=0, pct=1, message="", logs=[], started=time.time())
+        _log("Iniciando atualização…")
         if download:
             step(1, "Baixando dados novos (martj42)…")
             ingest.download_snapshot(dest=ingest.DEFAULT_CSV)
@@ -41,13 +54,57 @@ def _run_pipeline(db_path, download=True):
         ingest.ingest(ingest.DEFAULT_CSV, db_path)
         step(3, "Reconstruindo o Elo…")
         c = db.connect(db_path); elo_engine.run(c); c.close()
-        step(4, "Montando features (a etapa mais longa, ~1 min)…")
-        c = db.connect(db_path); features_pit.run(c); c.close()
-        step(5, "Gerando previsões…")
-        c = db.connect(db_path); predictor.run(c); c.close()
-        _UPDATE.update(state="done", i=5, step="Base atualizada.", ts=time.strftime("%H:%M:%S"))
+        step(4, "Montando features dos jogos novos…")
+        c = db.connect(db_path); features_pit.run(c, incremental=True); c.close()
+        step(5, "Gerando previsões dos jogos novos…")
+        c = db.connect(db_path); predictor.run(c, incremental=True); c.close()
+        _UPDATE.update(state="done", i=5, pct=100, step="Base atualizada.",
+                       ts=time.strftime("%H:%M:%S"))
+        _log("✓ Base atualizada.")
     except Exception as e:   # rede/arquivo/etc. — reporta no painel
         _UPDATE.update(state="error", step="Falhou.", message=str(e))
+        _log("✗ Erro: " + str(e))
+
+
+# --- Simulação da Copa: cache + job em background com progresso (P3/D-73) ---
+# A sim/bracket é cara (Monte Carlo); o sorteio+Elo só mudam após "Atualizar". Então cacheamos
+# por (tipo, sims, impressão-digital dos dados). 1ª vez roda em thread publicando % (igual ao
+# "Atualizar"); visitas/abas seguintes são INSTANTÂNEAS (cache).
+_SIM = {"state": "idle", "pct": 0, "kind": "", "key": "", "msg": ""}
+_SIM_LOCK = threading.Lock()
+_SIM_CACHE = {}
+
+
+def _sim_fingerprint(conn):
+    r = conn.execute("SELECT COUNT(*), MAX(date) FROM matches").fetchone()
+    return f"{r[0]}|{r[1]}|{MODEL_VERSION}"
+
+
+def _run_sim_job(kind, sims, key, db_path, cfg_path):
+    from .simulate import run, most_likely_bracket, load_config, validate, get_elos
+
+    def progress(done, total):
+        base = 5 if kind == "bracket" else 0
+        _SIM["pct"] = min(99, base + int(done / max(total, 1) * (99 - base)))
+    try:
+        with db.session(db_path) as conn:
+            if kind == "bracket":
+                bk = most_likely_bracket(conn, cfg_path)
+                _SIM["pct"] = 5
+                mc = run(conn, cfg_path, n_sims=sims, progress=progress)
+                result = {"model": bk["model"], "n_sims": mc["n_sims"],
+                          "match": {str(k): v for k, v in bk["match"].items()},
+                          "champion": bk["champion"], "finalists": list(bk["finalists"]),
+                          "third": bk["third"], "table": mc["table"]}
+            else:
+                cfg, groups = load_config(cfg_path)
+                warnings = validate(groups, get_elos(conn))
+                result = run(conn, cfg_path, n_sims=sims, progress=progress)
+                result["warnings"] = warnings
+        _SIM_CACHE[key] = result
+        _SIM.update(state="done", pct=100)
+    except Exception as e:   # noqa: BLE001 — reporta no painel
+        _SIM.update(state="error", msg=str(e))
 
 
 def create_app(db_path=None):
@@ -118,45 +175,36 @@ def create_app(db_path=None):
     def bracket_page():
         return render_template("bracket.html")
 
-    @app.get("/api/bracket")
-    def api_bracket():
-        """Chaveamento mais provável (dos 16 avos à final) + tabela do Monte Carlo."""
-        from .simulate import most_likely_bracket, run
+    def _sim_start(kind):
+        """Inicia (ou devolve do cache) a simulação. Retorna {done,result} | {running,pct} | {erro}.
+        O front faz POLL do mesmo endpoint até vir {done}. 1 job por vez (local)."""
         cfg_path = app.config["CONFIG"]
         if not Path(cfg_path).exists():
             return jsonify({"erro": "sorteio não encontrado — preencha dados/copa2026.json"})
         try:
-            sims = int(request.args.get("sims", 5000) or 5000)
+            sims = int(request.args.get("sims", 2000) or 2000)
         except ValueError:
-            sims = 5000
+            sims = 2000
         sims = max(200, min(sims, 50000))
-        with db.session(app.config["DB"]) as conn:   # P-I
-            bk = most_likely_bracket(conn, cfg_path)
-            mc = run(conn, cfg_path, n_sims=sims)
-        return jsonify({
-            "model": bk["model"], "n_sims": mc["n_sims"],
-            "match": {str(k): v for k, v in bk["match"].items()},   # mid -> {a,b,winner,p_adv}
-            "champion": bk["champion"], "finalists": list(bk["finalists"]),
-            "third": bk["third"], "table": mc["table"],
-        })
+        with db.session(app.config["DB"]) as conn:
+            key = f"{kind}|{sims}|{_sim_fingerprint(conn)}"
+        if key in _SIM_CACHE:
+            return jsonify({"done": True, "result": _SIM_CACHE[key]})
+        with _SIM_LOCK:
+            if _SIM["state"] == "running":
+                return jsonify({"running": True, "pct": _SIM["pct"] if _SIM["key"] == key else 0})
+            _SIM.update(state="running", pct=0, kind=kind, key=key, msg="")
+        threading.Thread(target=_run_sim_job, args=(kind, sims, key, app.config["DB"], cfg_path),
+                         daemon=True).start()
+        return jsonify({"running": True, "pct": 0})
+
+    @app.get("/api/bracket")
+    def api_bracket():
+        return _sim_start("bracket")
 
     @app.get("/api/simulate")
     def api_simulate():
-        from .simulate import run, load_config, validate, get_elos
-        try:
-            sims = int(request.args.get("sims", 5000) or 5000)
-        except ValueError:
-            sims = 5000
-        sims = max(200, min(sims, 50000))
-        cfg_path = app.config["CONFIG"]
-        if not Path(cfg_path).exists():
-            return jsonify({"erro": "sorteio não encontrado — preencha dados/copa2026.json"})
-        with db.session(app.config["DB"]) as conn:   # P-I
-            cfg, groups = load_config(cfg_path)
-            warnings = validate(groups, get_elos(conn))
-            res = run(conn, cfg_path, n_sims=sims)
-        res["warnings"] = warnings
-        return jsonify(res)
+        return _sim_start("simulate")
 
     @app.get("/prospectivo")
     def prospectivo_page():
@@ -177,13 +225,15 @@ def create_app(db_path=None):
         with _UPDATE_LOCK:
             if _UPDATE["state"] == "running":
                 return jsonify({"erro": "atualização já em andamento", **_UPDATE}), 409
-            _UPDATE.update(state="running", step="Iniciando…", i=0, message="")
+            _UPDATE.update(state="running", step="Iniciando…", i=0, pct=1, message="", logs=["Iniciando…"], started=time.time())
         threading.Thread(target=_run_pipeline, args=(app.config["DB"], download), daemon=True).start()
         return jsonify({"started": True})
 
     @app.get("/api/update/status")
     def api_update_status():
-        return jsonify(_UPDATE)
+        st = dict(_UPDATE)
+        st["elapsed"] = int(time.time() - st["started"]) if st.get("started") and st["state"] in ("running", "done") else 0
+        return jsonify(st)
 
     # --- Registro prospectivo pela interface (D-71): mesmas ações da CLI, sem terminal ---
     @app.post("/api/registrar/register-batch")
@@ -239,11 +289,17 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser(description="Interface web local de previsão.")
     p.add_argument("--db", default=str(DEFAULT_DB))
     p.add_argument("--port", type=int, default=5000)
+    p.add_argument("--open", dest="open_browser", action="store_true",
+                   help="abre o navegador automaticamente (usado pelo launcher)")
     args = p.parse_args(argv)
     if not Path(args.db).exists():
         print(f"[erro] {args.db} não existe. Rode ingest + elo_engine antes.")
         return 1
-    print(f"Interface em http://127.0.0.1:{args.port}   (Ctrl+C para sair)")
+    url = f"http://127.0.0.1:{args.port}"
+    print(f"Interface em {url}   (Ctrl+C para sair)")
+    if getattr(args, "open_browser", False):
+        import webbrowser
+        threading.Thread(target=lambda: (time.sleep(1.5), webbrowser.open(url)), daemon=True).start()
     # threaded: permite o polling do /api/update/status enquanto o refresh roda em background
     create_app(args.db).run(host="127.0.0.1", port=args.port, debug=False, threaded=True)
     return 0

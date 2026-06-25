@@ -30,7 +30,7 @@ python -m scm.ingest --download     # baixa o histórico do martj42 (~49k jogos)
 python -m scm.ingest                # normaliza -> dados/scm.sqlite
 python -m scm.elo_engine --top 30   # reconstrói o Elo cronológico + mostra o top-30
 python -m scm.features_pit          # features point-in-time (forma, dr_adj, σ_dr)
-python -m scm.predictor             # gera as previsões (modelo baseline-v0.2-altitude)
+python -m scm.predictor             # gera as previsões (modelo baseline-v0.4-ad)
 ```
 Pronto — a base e as previsões estão no `dados/scm.sqlite`.
 
@@ -70,7 +70,7 @@ Depois, `predict_match`/`web` já usam o Elo atualizado. (Para automatizar, agen
 
 ## 6. Testes
 ```
-python -m pytest -q                 # 86 testes
+python -m pytest -q                 # 137 testes
 ```
 > Quirk de sandbox: se uma edição `.py` não refletir, `rm -rf scm/__pycache__ tests/__pycache__`.
 
@@ -114,3 +114,35 @@ Os jogos já disputados são **travados** automaticamente da base. É **insight*
 > **Atualização 2026-06-18:** o `copa2026.json` já vem com o **sorteio oficial completo** da Copa 2026 (obtido por busca web e **cruzado 100%** com os jogos já disputados no martj42). Não precisa preencher — só rode `python -m scm.simulate`. Edite apenas se a FIFA alterar algo. Snapshot atual do favoritismo: Argentina ~18,6%, Espanha ~15%, França ~11%.
 
 > **Chaveamento oficial + ε (2026-06-18):** a simulação já usa o **chaveamento real da FIFA** (não mais sorteio aleatório). Para calibrar o ε do mata-mata com dados de pênaltis (opcional, melhora a fidelidade): `python -m scm.calibrate_ko --download` (baixa o `shootouts.csv` 1x) — ele mede quanto o time mais forte de fato vence na disputa e sugere o ε. Até lá, ε=0,03 (pênalti ~moeda, como a literatura indica).
+
+
+## ▶ Atualização 2026-06-21 — v0.4 e comandos novos
+Modelo atual: **`baseline-v0.4-ad`** (perna ataque/defesa ligada, w_ad=0,50). A **simulação** agora
+mistura o sinal de gols no λ (`config.SIM_AD_BLEND=0,50`, portão major +0,0071). Testes: **137** (rode `pytest -q`).
+Comandos novos:
+```
+python -m scm.odds ingest dados/odds_copa_disputados.csv   # odds reais (de-vig) -> odds_hist
+python -m scm.odds bench --major                           # Brier do modelo vs MERCADO (juiz honesto)
+python -m scm.xg build open-data --csv dados/xg.csv        # xG por seleção (clone do StatsBomb)
+python -m scm.attack_defense --gate-xg                     # PORTÃO: xG acrescenta? (OFF até passar)
+```
+Detalhe: [[Evolucao v0.4 - perna AD + sigma no torneio (2026-06-20)]] · [[Como usar xG (prior de elenco) — turnkey (2026-06-20)]].
+
+## ▶ Atualização 2026-06-21 (b) — abrir com 1 clique + pop-up de atualização
+**Abrir sem terminal:** **duplo-clique em `scm_analytics/Abrir SCM (Copa 2026).bat`**. Na 1ª vez ele
+cria o ambiente, instala as dependências e constrói a base (baixa os dados); nas próximas, só sobe o
+servidor e abre o navegador. Para sair, feche a janela.
+
+**Atualizar os dados (1 botão):** na interface, o **pop-up flutuante** (canto inferior direito) tem o
+botão **"Atualizar tudo"** — baixa o snapshot novo, reconstrói o Elo, monta as features e gera as
+previsões. Ele mostra **barra de %, etapa e logs ao vivo**, **persiste ao trocar de tela** (o estado
+vive no servidor), e pode ser **minimizado** (vira uma pílula com a %; lembra a preferência). Ao
+terminar, clique em **Recarregar página** para ver os números novos.
+
+## ▶ Atualização 2026-06-21 (c) — "Atualizar tudo" agora é rápido (incremental)
+O botão **"Atualizar tudo"** passou a reprocessar **apenas os jogos novos** (os antigos não mudam —
+features point-in-time). Resultado idêntico ao rebuild completo, mas em **segundos** em vez de ~12 min.
+Ressalva: pressupõe que os jogos novos são os mais recentes (append-only — o caso normal). Se o
+snapshot **corrigir um jogo antigo** ou se você **mudar o código** das features, faça um rebuild
+completo uma vez: `python -m scm.features_pit && python -m scm.predictor` (ou apague `match_features`
+e clique em Atualizar).

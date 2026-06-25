@@ -159,3 +159,27 @@ Construtor `scm.xg build` validado no StatsBomb real (73 seleções, 37/48 da Co
 
 ## ▶ Atualização 2026-06-21 (b) — sinal de gols (perna AD) no λ da SIMULAÇÃO (ADOTADO)
 A simulação do título usava só `lambdas(dr)` (Elo puro). Agora amostra de `λ=(1−α)·λ_Elo+α·λ_AD` (α=`config.SIM_AD_BLEND=0.5`), com a λ da perna AD (gols). **Portão: major +0,00712 IC[+0,0047,+0,0096]; all +0,00497 IC[+0,0043,+0,0056]** — passa com folga (maior ganho do trabalho). Efeito no título: Brasil/Portugal/Alemanha ↑ (rumo ao consenso), México (anfitrião) ↓, **Spain ↓ 15→10** (gols não sustentam o favoritismo de elenco do EA/Opta), Colômbia segue alta (Copa América a defende), Argentina segue 1º. Muda só a SIM; o modelo de 1 jogo (v0.4-ad) é o mesmo. Detalhe: [[Comparacao com mercado, Opta e EA (2026-06-20)]] (experimento 06-21).
+
+## ▶ Atualização 2026-06-21 (c) — docs consolidadas + mercado-na-sim (inviável)
+- **Docs sincronizadas p/ `baseline-v0.4-ad`:** [[Como rodar o sistema]] (versão + comandos novos), [[Codigo (estrutura)]], `scm_analytics/README` (137 testes / 26 arquivos), [[Indice]] (seção Auditoria & evolução). `.gitignore`: `open-data/` (clone de ~18 GB do StatsBomb) ignorado; `xg.csv` opcional p/ versionar.
+- **Experimento mercado-no-λ-da-sim: ESTRUTURALMENTE INVIÁVEL** — o mercado só precifica jogos agendados; a sim precisa de λ p/ a árvore hipotética (cobertura ~1,1%). Sem portão a rodar. Mercado fica na previsão de 1 jogo (0,20) + uso operacional. Detalhe: [[Comparacao com mercado, Opta e EA (2026-06-20)]] (experimento b).
+
+## ▶ Atualização 2026-06-21 (d) — UX: launcher 1-clique + pop-up de atualização persistente
+- **Launcher** `scm_analytics/Abrir SCM (Copa 2026).bat` (duplo-clique): 1ª vez cria venv + instala deps + constrói a base; depois sobe `scm.web --open` e abre o navegador. Sem terminal.
+- **Pop-up flutuante persistente** (`templates/_update_widget.html` reescrito): botão **"Atualizar tudo"** + barra de %, etapa e **logs ao vivo**; faz poll de `/api/update/status` em TODA tela (estado server-side) → **não some ao navegar**; minimizar/mostrar com memória (localStorage), canto inferior direito (não atrapalha).
+- **Backend** (`web.py`): `_UPDATE` agora tem `pct`+`logs`+`started`; `/api/update/status` devolve `elapsed`; `scm.web --open` abre o navegador. Verificado: web.py compila; as 4 telas renderizam com o pop-up (Jinja). Flask não roda no sandbox da auditoria → teste o servidor na sua máquina.
+
+## ▶ Atualização 2026-06-21 (e) — "Atualizar" INCREMENTAL (12 min → segundos)
+O botão **"Atualizar tudo"** ficou incremental: `features_pit`/`predictor` agora processam **só os jogos NOVOS** (os antigos são invariantes — point-in-time), em vez de reprocessar os 49k. **Verificado** (synthetic): resultado **idêntico** ao rebuild completo (features e previsões batem 100%), processando só os novos. Numa atualização diária (poucos jogos) cai de ~12 min p/ **segundos**. `elo_engine` segue full (rápido, ~s) por robustez. Flags: `features_pit.run(incremental=True)`, `predictor.run(incremental=True)` (CLI segue full por padrão = seguro). **Pressuposto: append-only** (jogos novos = os mais recentes; vale na Copa). Após **correção** de jogo antigo no snapshot OU mudança de **código** de feature, rode rebuild completo: `python -m scm.features_pit && python -m scm.predictor`.
+
+## ▶ Atualização 2026-06-21 (f) — UX web lote 1 (auditoria [[Auditoria UX-web (2026-06-21)]])
+Aplicado: P1 texto do chaveamento (simulacao dizia "sorteio aleatório" — corrigido p/ oficial FIFA); P2 `predict_match` aceita nomes em PT (apelidos→EN); P4 a11y (labels nas odds, sims `type=number`, abas `role=tab`, aria na barra); P5 Guadalajara no venue + botão trocar lados + scroll ao resultado + link de registro c/ handoff p/ o Prospectivo. 32/32 compila; 4 telas renderizam. Pendente: P3 (cache/progresso do bracket), P6 (base template + CSS único), P7 (polish).
+
+## ▶ Atualização 2026-06-21 (g) — UX web lote 2 (P3 perf + P6 front)
+P3: `/api/bracket` e `/api/simulate` agora **cacheiam** (por sims+impressão-digital dos dados) e rodam a 1ª vez em **job de fundo com % real** (`web._run_sim_job` + `simulate.run(progress=)`); front faz poll com **barra de progresso**; default 5000→**2000**. P6: **sidebar única** (`templates/_sidebar.html`) e **CSS morto removido** nas 4 telas. 32/32 compila; 4 telas renderizam. Não testado no Flask ao vivo (sandbox sem flask) → testar no navegador. Detalhe: [[Auditoria UX-web (2026-06-21)]] (lote 2).
+
+## ▶ Atualização 2026-06-21 (h) — UX web lote 3 (P7 polish)
+Favicon (SVG data-URI) nas 4 telas; **dark mode** aditivo (`prefers-color-scheme`, não afeta o claro) nas 4 + popup; pop-up responsivo no mobile. Separador decimal (vírgula) **deferido de propósito** (colide com larguras CSS via toFixed e refs §3.8; baixo valor). Auditoria UX P1–P7 concluída. Detalhe: [[Auditoria UX-web (2026-06-21)]] (lote 3).
+
+## ▶ Atualização 2026-06-21 (i) — operar e medir a Copa (placar real)
+Novo: `python -m scm.report --copa` = Brier do modelo na Copa 2026 (previsões PIT) vs uniforme (IC) e vs mercado, repetível a cada rodada (`report.cup_scorecard`). **Medição real (36 jogos): Brier 0,587 vs uniforme 0,667, mas IC [-0,067,+0,219] CRUZA ZERO** — 1 torneio é ruidoso; não prova skill ainda (o backtest de 2.253 dizia que sim). Mercado à frente (0,566 vs 0,640, n=12). Runbook da rodada em [[Operação da Copa 2026]]. settle-from-db: 0 novos, 11 em aberto (aguardando placares no snapshot).

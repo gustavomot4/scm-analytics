@@ -1,0 +1,15 @@
+{# Sidebar ÚNICA (P6): incluída nas 4 telas com {% set active='...' %}{% include '_sidebar.html' %}.
+   Fonte única da navegação — antes era copiada (e divergia) em cada página. #}
+<aside class="sidebar">
+  <div class="sb-brand">SCM Analytics<span>Copa 2026</span></div>
+  <nav class="sb-nav">
+    <a href="/"{% if active=='prever' %} class="active"{% endif %}>Prever confronto</a>
+    <a href="/simulacao"{% if active=='sim' %} class="active"{% endif %}>Simular Copa</a>
+    <a href="/bracket"{% if active=='bracket' %} class="active"{% endif %}>Chaveamento</a>
+    <a href="/prospectivo"{% if active=='prosp' %} class="active"{% endif %}>Prospectivo</a>
+  </nav>
+  <div class="sb-foot">
+    {% include '_update_widget.html' %}
+    <div class="model" id="model"></div><div>Probabilidade, não certeza.</div>
+  </div>
+</aside>

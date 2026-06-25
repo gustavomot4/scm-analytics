@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%232563eb'/><text x='16' y='22' font-size='17' font-weight='700' text-anchor='middle' fill='white' font-family='Segoe UI,Arial'>S</text></svg>">
 <title>SCM Analytics — Chaveamento da Copa 2026</title>
 <style>
   :root{--bg:#fff;--panel:#f7f8fa;--text:#1c1f23;--muted:#6b7280;--border:#e5e7eb;--border-strong:#d2d6db;
@@ -19,9 +20,6 @@
   .sb-nav a:hover{background:#eceff3}
   .sb-nav a.active{background:var(--accent-weak);color:var(--accent);font-weight:500}
   .sb-foot{margin-top:auto;color:var(--muted);font-size:11px;padding-top:12px;border-top:1px solid var(--border)}
-  .sb-update{width:100%;height:32px;margin-bottom:6px;border:1px solid var(--border-strong);border-radius:6px;background:#fff;color:var(--text);font:inherit;font-size:13px;cursor:pointer}
-  .sb-update:hover{background:#eceff3} .sb-update:disabled{opacity:.6;cursor:default}
-  .sb-updmsg{font-size:11px;color:var(--muted);margin-bottom:8px;min-height:13px}
   .content{flex:1;min-width:0}
   main{max-width:1180px;margin:0 auto;padding:24px 24px 44px}
   h1{font-size:18px;font-weight:600;margin:0 0 4px;letter-spacing:-.01em}
@@ -57,35 +55,39 @@
   .barcell span{position:relative;z-index:1}
   .note{color:var(--muted);font-size:12px;margin-top:18px;max-width:900px;line-height:1.6}
   .err{color:#9b2c2c;padding:12px 0}
+  .pbar{height:8px;background:var(--panel);border:1px solid var(--border);border-radius:999px;overflow:hidden;margin-top:8px}
+  .pbar i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s linear}
   .hide{display:none}
   @media(max-width:720px){.app{flex-direction:column}.sidebar{width:auto;height:auto;position:static;flex-direction:row;align-items:center;gap:8px;overflow-x:auto;padding:8px 12px}.sb-brand{padding:0 8px 0 4px;white-space:nowrap}.sb-brand span{display:none}.sb-nav{flex-direction:row}.sb-foot{display:none}}
+
+  /* P7: dark mode ADITIVO (só no modo escuro do SO; não afeta o claro). Sobrescreve as vars
+     e as superfícies que eram brancas fixas. */
+  @media (prefers-color-scheme: dark){
+    :root{--bg:#0f1115;--panel:#171a21;--text:#e6e8eb;--muted:#98a2b3;--border:#272c36;
+      --border-strong:#39404c;--accent:#4f8cff;--accent-weak:#18233b;--accent-strong:#6ba0ff;
+      --win:#4f8cff;--draw:#8a93a3;--loss:#aeb6c2}
+    body{background:var(--bg);color:var(--text)}
+    input,select,textarea{background:#11151c;color:var(--text);border-color:var(--border-strong)}
+    .result,.stat,.card,.m,.mktcmp,.tabs button,.btn,.ctl button,.chip{background:var(--panel)}
+    .sidebar{background:var(--panel)}
+    .error,.warn{background:#2a1416;border-color:#5a2a2a;color:#f3b6b6}
+  }
 </style>
 </head>
 <body>
 <div class="app">
-  <aside class="sidebar">
-    <div class="sb-brand">SCM Analytics<span>Copa 2026</span></div>
-    <nav class="sb-nav">
-      <a href="/">Prever confronto</a>
-      <a href="/simulacao">Simular Copa</a>
-      <a href="/bracket" class="active">Chaveamento</a>
-      <a href="/prospectivo">Prospectivo</a>
-    </nav>
-    <div class="sb-foot">
-      {% include '_update_widget.html' %}
-      <div id="model"></div><div>Probabilidade, não certeza.</div>
-    </div>
-  </aside>
+  {% set active='bracket' %}
+{% include '_sidebar.html' %}
   <div class="content">
     <main>
       <h1>Chaveamento mais provável</h1>
       <p class="sub">Dos 16 avos à final. A % é a chance de avançar daquele confronto. Altitude entra só nos jogos de grupo; mata-mata é neutro.</p>
       <div class="toolbar">
-        <div class="tabs">
-          <button id="tabBk" class="on" onclick="show('bk')">Chaveamento</button>
-          <button id="tabMc" onclick="show('mc')">Probabilidades</button>
+        <div class="tabs" role="tablist" aria-label="Visualização">
+          <button id="tabBk" class="on" role="tab" aria-selected="true" onclick="show('bk')">Chaveamento</button>
+          <button id="tabMc" role="tab" aria-selected="false" onclick="show('mc')">Probabilidades</button>
         </div>
-        <div class="ctl"><span>Simulações</span><input id="sims" type="text" value="5000" class="tnum"><button id="go">Recarregar</button></div>
+        <div class="ctl"><span>Simulações</span><input id="sims" type="number" value="2000" min="200" max="50000" step="500" inputmode="numeric" class="tnum"><button id="go">Recarregar</button></div>
         <span class="champ" id="champ" style="display:none"></span>
       </div>
 
@@ -111,17 +113,13 @@
     $('viewMc').classList.toggle('hide', v!=='mc');
     $('tabBk').classList.toggle('on', v==='bk');
     $('tabMc').classList.toggle('on', v==='mc');
+    $('tabBk').setAttribute('aria-selected', v==='bk'); $('tabMc').setAttribute('aria-selected', v==='mc');
   }
   function row(t,win,p){return `<div class="row ${win?'w':''}"><span class="nm" title="${t||''}">${t||'—'}</span><span class="p tnum">${win?Math.round(p*100)+'%':''}</span></div>`;}
   function card(mid,d){const x=d.match[String(mid)];if(!x)return'';const f=mid===104?' final':'';
     return `<div class="m${f}">${row(x.a,x.winner===x.a,x.p_adv)}${row(x.b,x.winner===x.b,x.p_adv)}</div>`;}
-  async function load(){
-    $('go').disabled=true; $('go').textContent='…';
-    $('bracket').innerHTML='<div class="sub" style="padding:18px">Calculando…</div>';
-    let d;
-    try{ d=await (await fetch('/api/bracket?sims='+encodeURIComponent($('sims').value||5000))).json(); }
-    catch(e){ $('bracket').innerHTML='<div class="err">Falha ao carregar a API.</div>'; reset(); return; }
-    if(d.erro){ $('bracket').innerHTML='<div class="err">'+d.erro+'</div>'; reset(); return; }
+  let POLL=null;
+  function renderAll(d){
     DATA=d;
     $('model').textContent='modelo '+d.model;
     $('champ').style.display=''; $('champ').textContent='Campeão: '+d.champion;
@@ -132,7 +130,21 @@
       `<td class="tnum">${(r.p_final*100).toFixed(0)}%</td><td class="tnum">${(r.p_semi*100).toFixed(0)}%</td><td class="tnum">${(r.p_advance*100).toFixed(0)}%</td></tr>`).join('');
     const vice=d.finalists.find(t=>t!==d.champion);
     $('note').innerHTML=`É <b>um</b> chaveamento (a "história"): a chance do bracket exato é ínfima. Os números rigorosos por seleção estão na aba <b>Probabilidades</b> (Monte Carlo, ${d.n_sims.toLocaleString()} torneios). Vice previsto: ${vice} · 3º: ${d.third}.`;
-    reset();
+  }
+  async function load(){
+    if(POLL){clearInterval(POLL);POLL=null;}
+    $('go').disabled=true; $('go').textContent='…';
+    const sims=encodeURIComponent($('sims').value||2000);
+    $('bracket').innerHTML='<div style="padding:18px;max-width:380px"><div class="sub" id="pmsg">Simulando o torneio…</div><div class="pbar"><i id="pbar"></i></div><div class="sub" style="margin-top:6px;font-size:11px">A 1ª vez calcula; depois fica em cache (instantâneo).</div></div>';
+    async function tick(){
+      let d;
+      try{ d=await (await fetch('/api/bracket?sims='+sims)).json(); }
+      catch(e){ if(POLL){clearInterval(POLL);POLL=null;} $('bracket').innerHTML='<div class="err">Falha ao carregar a API.</div>'; reset(); return; }
+      if(d.erro){ if(POLL){clearInterval(POLL);POLL=null;} $('bracket').innerHTML='<div class="err">'+d.erro+'</div>'; reset(); return; }
+      if(d.running){ const pb=$('pbar'); if(pb) pb.style.width=Math.max(3,d.pct||0)+'%'; const pm=$('pmsg'); if(pm) pm.textContent='Simulando o torneio… '+(d.pct||0)+'%'; return; }
+      if(d.done){ if(POLL){clearInterval(POLL);POLL=null;} renderAll(d.result); reset(); }
+    }
+    tick(); POLL=setInterval(tick,700);
   }
   function reset(){ $('go').disabled=false; $('go').textContent='Recarregar'; }
   $('go').addEventListener('click',load);
