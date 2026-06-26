@@ -43,3 +43,53 @@ def test_handicap_favorite_wins_by_two():
     mk = markets(2.4, 0.7)
     assert mk["handicap"]["a_-1.5"] > mk["handicap"]["b_-1.5"]    # favorito vence por 2+ mais
     assert 0.0 <= mk["handicap"]["a_-1.5"] <= 1.0
+
+
+# --- mercados NOVOS (expansão 2026-06-25): partições, par/ímpar, win-to-nil, grade, retrocompat ---
+def test_extended_over_lines_and_oddeven():
+    mk = markets(1.9, 1.3)
+    lines = ("0.5", "1.5", "2.5", "3.5", "4.5", "5.5", "6.5")
+    for ln in lines:
+        assert mk["over"][ln] + mk["under"][ln] == pytest.approx(1.0, abs=1e-9)
+    o = [mk["over"][l] for l in lines]
+    assert all(o[i] >= o[i + 1] for i in range(len(o) - 1))
+    assert mk["odd_even"]["odd"] + mk["odd_even"]["even"] == pytest.approx(1.0, abs=1e-9)
+
+
+def test_partitions_sum_to_one():
+    mk = markets(1.6, 1.2)
+    assert sum(mk["total_exato"].values()) == pytest.approx(1.0, abs=1e-3)
+    assert sum(mk["win_margin"].values()) == pytest.approx(1.0, abs=1e-3)
+    assert sum(mk["result_btts"].values()) == pytest.approx(1.0, abs=1e-3)
+    assert sum(mk["result_over25"].values()) == pytest.approx(1.0, abs=1e-3)
+    assert mk["dnb"]["a"] + mk["dnb"]["b"] == pytest.approx(1.0, abs=1e-9)
+
+
+def test_zero_zero_consistency():
+    la, lb = 1.4, 1.1
+    mk = markets(la, lb)
+    assert mk["result_btts"]["draw_no"] == pytest.approx(_pois(0, la) * _pois(0, lb), abs=1e-9)
+
+
+def test_win_to_nil_bounds():
+    mk = markets(2.4, 0.7)
+    assert mk["win_to_nil"]["a"] > mk["win_to_nil"]["b"]            # favorito vence sem sofrer mais
+    assert mk["win_to_nil"]["a"] <= mk["double_chance"]["12"]       # vencer-sem-sofrer ⊆ "algum vence"
+    assert mk["win_to_nil"]["a"] <= mk["double_chance"]["1X"]
+
+
+def test_multigols_and_score_grid_shape():
+    mk = markets(1.5, 1.5)
+    assert all(0.0 <= v <= 1.0 for v in mk["multigols"].values())
+    g = mk["score_grid"]
+    assert len(g) == 6 and all(len(r) == 6 for r in g)
+    assert 0.0 < sum(sum(r) for r in g) <= 1.0 + 1e-9
+
+
+def test_backward_compat_keys_present():
+    mk = markets(1.5, 1.2)
+    for k in ("over", "under", "btts", "team_a_over", "team_b_over", "clean_sheet_a",
+              "clean_sheet_b", "double_chance", "handicap", "first_to_score", "total_goals"):
+        assert k in mk
+    assert "a_-1.5" in mk["handicap"] and "b_-1.5" in mk["handicap"]
+    assert "1X" in mk["double_chance"]

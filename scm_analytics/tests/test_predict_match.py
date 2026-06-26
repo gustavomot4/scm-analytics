@@ -31,9 +31,15 @@ def test_favorite_has_higher_prob(conn):
 
 
 def test_unknown_team_suggests(conn):
-    r = pm.predict_match(conn, "Brasil", "Bolivia")   # 'Brasil' (pt) não existe
+    r = pm.predict_match(conn, "Atlantida", "Bolivia")   # nome inexistente (sem alias)
     assert r["erro"] == "time não encontrado"
     assert "faltando" in r
+
+
+def test_pt_alias_resolves(conn):
+    # 'Brasil' (pt) AGORA resolve via _PT_ALIAS -> 'Brazil' (não é mais erro)
+    r = pm.predict_match(conn, "Brasil", "Bolivia")
+    assert "erro" not in r and r["home"] == "Brazil"
 
 
 def test_altitude_boosts_home(conn):
@@ -71,7 +77,7 @@ def test_predict_match_exposes_markets(conn):
 
 
 def test_difflib_suggests_brazil(conn):
-    r = pm.predict_match(conn, "Brasil", "Bolivia")       # 'Brasil' (pt)
+    r = pm.predict_match(conn, "Brazl", "Bolivia")        # erro de digitação (não bate alias)
     assert r["erro"] == "time não encontrado"
     assert "Brazil" in r["sugestoes"]                     # difflib aproxima
 

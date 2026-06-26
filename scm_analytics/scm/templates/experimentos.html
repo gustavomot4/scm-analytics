@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8">
+<script>(function(){try{var s=localStorage.getItem('scm-theme');var t=s||((window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light');document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%232563eb'/><text x='16' y='22' font-size='17' font-weight='700' text-anchor='middle' fill='white' font-family='Segoe UI,Arial'>S</text></svg>">
+<title>SCM Analytics — Experimentos</title>
+<style>
+  :root{--bg:#fff;--panel:#f7f8fa;--text:#1c1f23;--muted:#6b7280;--border:#e5e7eb;--border-strong:#d2d6db;
+    --accent:#2563eb;--accent-weak:#eef3ff;--accent-strong:#1d57d6;--radius:8px;--hover:#eceff3;--input-bg:#fff}
+  *{box-sizing:border-box} html,body{margin:0}
+  body{background:var(--bg);color:var(--text);font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .tnum{font-variant-numeric:tabular-nums}
+  .app{display:flex;min-height:100vh}
+  .sidebar{width:210px;flex:none;background:var(--panel);border-right:1px solid var(--border);padding:16px 12px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+  .sb-brand{font-weight:600;font-size:15px;padding:4px 8px 16px;letter-spacing:-.01em}
+  .sb-brand span{display:block;color:var(--muted);font-weight:400;font-size:12px;margin-top:2px}
+  .sb-nav{display:flex;flex-direction:column;gap:2px}
+  .sb-nav a{display:block;padding:9px 11px;border-radius:6px;color:var(--text);text-decoration:none;font-size:14px}
+  .sb-nav a:hover{background:var(--hover)}
+  .sb-nav a.active{background:var(--accent-weak);color:var(--accent);font-weight:500}
+  .sb-foot{margin-top:auto;color:var(--muted);font-size:11px;padding-top:12px;border-top:1px solid var(--border)}
+  .content{flex:1;min-width:0}
+  main{max-width:920px;margin:0 auto;padding:28px 24px 48px}
+  h1{font-size:18px;font-weight:600;margin:0 0 4px;letter-spacing:-.01em}
+  h2{font-size:14px;font-weight:600;margin:26px 0 4px}
+  .sub{color:var(--muted);margin:0 0 8px;font-size:13px}
+  .mut{color:var(--muted)}
+  code{background:var(--panel);border:1px solid var(--border);padding:1px 6px;border-radius:5px;font-size:12px}
+  .note{font-size:12px;color:var(--muted);margin:6px 0 14px;border-left:3px solid var(--border-strong);padding:6px 10px;background:var(--panel);border-radius:0 6px 6px 0}
+  .exp-row{border:1px solid var(--border);border-radius:var(--radius);background:var(--panel);padding:13px 15px;margin-bottom:10px}
+  .exp-h{display:flex;justify-content:space-between;gap:12px;align-items:baseline;flex-wrap:wrap}
+  .exp-nm{font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px}
+  .veredito{font-size:12px;color:var(--muted)}
+  .exp-ctl{display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap}
+  select,input[type=number]{height:34px;padding:0 10px;border:1px solid var(--border-strong);border-radius:6px;background:var(--input-bg);color:var(--text);font:inherit}
+  input[type=number]{width:90px}
+  .btn{height:34px;padding:0 14px;border:1px solid var(--border-strong);border-radius:6px;background:var(--input-bg);color:var(--text);font:inherit;font-size:13px;cursor:pointer}
+  .btn:hover{background:var(--hover)} .btn:disabled{opacity:.55;cursor:default}
+  .gateres{margin-top:9px;font-size:12px;min-height:1px}
+  .tb-msg{font-size:12px;color:var(--muted)} .tb-msg.ok{color:#16a34a} .tb-msg.err{color:#b45309}
+  .badge{display:inline-block;padding:0 8px;border-radius:999px;font-size:11px;font-weight:600;border:1px solid;line-height:18px;background:transparent}
+  .badge.adotado{color:#16a34a;border-color:#16a34a}
+  .badge.rejeitado{color:var(--muted);border-color:var(--border-strong)}
+  .badge.inconclusivo{color:#d29922;border-color:#d29922}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+  th,td{text-align:left;padding:8px 8px;border-bottom:1px solid var(--border);vertical-align:top}
+  th{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;font-weight:500}
+  tr:last-child td{border-bottom:none}
+  .foot{color:var(--muted);font-size:12px;margin-top:22px}
+  @media(max-width:720px){.app{flex-direction:column}.sidebar{width:auto;height:auto;position:static;flex-direction:row;align-items:center;gap:8px;overflow-x:auto;padding:8px 12px}.sb-brand{padding:0 8px 0 4px;white-space:nowrap}.sb-brand span{display:none}.sb-nav{flex-direction:row}.sb-foot{display:none}}
+  :root[data-theme="dark"]{--bg:#0f1115;--panel:#171a21;--text:#e6e8eb;--muted:#98a2b3;--border:#272c36;
+    --border-strong:#39404c;--accent:#4f8cff;--accent-weak:#18233b;--accent-strong:#6ba0ff;--hover:#222a37;--input-bg:#11151c}
+  [data-theme="dark"] body{background:var(--bg);color:var(--text)}
+  [data-theme="dark"] .sidebar,[data-theme="dark"] .exp-row,[data-theme="dark"] .note{background:var(--panel)}
+  [data-theme="dark"] select,[data-theme="dark"] input,[data-theme="dark"] .btn{background:var(--input-bg);color:var(--text);border-color:var(--border-strong)}
+</style>
+</head>
+<body>
+<div class="app">
+{% set active='exp' %}
+{% include '_sidebar.html' %}
+<div class="content">
+<main>
+  <h1>Experimentos</h1>
+  <p class="sub">Ative variações <b>de simulação</b> na hora e rode o portão sem terminal. Modelo: <span id="modelver" class="mut">…</span>.</p>
+  <div class="note">Regra do projeto: nada entra sem <b>portão</b> (ΔBrier com IC que não cruza zero). Os itens de <b>simulação</b> abaixo recalculam na hora (seguros). Os de <b>modelo</b> são só leitura — mudá-los exige rebuild + nova versão (senão a produção diverge do backtest).</div>
+
+  <h2>Simulação — ativável ao vivo</h2>
+  <div id="simbox"></div>
+
+  <h2>Modelo — catálogo de portões (só leitura)</h2>
+  <p class="sub">O que já passou ou foi reprovado pelo portão. Para ligar/desligar um destes: edite <code>scm/config.py</code>, rode <code>python -m scm.predictor</code> (rebuild) e suba a versão.</p>
+  <div id="modelbox"></div>
+
+  <p class="foot">Probabilidade, não certeza. Tudo local, R$ 0. — D-75</p>
+</main>
+</div>
+</div>
+<script>
+  const $=id=>document.getElementById(id);
+  const jget=async u=>(await fetch(u)).json();
+  const jpost=async u=>(await fetch(u,{method:'POST'})).json();
+  function badge(g){return '<span class="badge '+(g||'')+'">'+(g||'?')+'</span>';}
+  function msg(key,text,cls){const el=$('gr_'+key); if(el) el.innerHTML='<span class="tb-msg '+(cls||'')+'">'+text+'</span>';}
+
+  async function load(){
+    const d=await jget('/api/experimentos');
+    const mv=$('modelver'); if(mv) mv.textContent=d.model;
+    const sm=$('model'); if(sm) sm.textContent='modelo '+d.model;
+    let html='';
+    d.sim.forEach(it=>{
+      html+='<div class="exp-row">';
+      html+='<div class="exp-h"><div class="exp-nm">'+it.nome+' '+badge(it.gate)+'</div><div class="veredito">'+it.veredito+'</div></div>';
+      html+='<div class="exp-ctl">';
+      if(it.tipo==='toggle'){
+        html+='<select data-key="'+it.key+'" class="exp-toggle">'+it.valores.map(v=>'<option value="'+v+'"'+(v===it.valor?' selected':'')+'>'+v+'</option>').join('')+'</select>';
+      }else{
+        html+='<input type="number" step="0.05" min="0" max="1" value="'+it.valor+'" data-key="'+it.key+'" class="exp-num"><button class="btn exp-apply" data-key="'+it.key+'">aplicar</button>';
+      }
+      if(it.gatekey){ html+='<button class="btn exp-gate" data-which="'+it.gatekey+'" data-key="'+it.key+'">rodar portão</button>'; }
+      html+='</div><div class="gateres" id="gr_'+it.key+'"></div></div>';
+    });
+    $('simbox').innerHTML=html;
+    $('modelbox').innerHTML='<table><thead><tr><th>Candidato</th><th>Portão</th><th>Veredito</th></tr></thead><tbody>'+
+      d.modelo.map(m=>'<tr><td>'+m.nome+'</td><td>'+badge(m.gate)+'</td><td class="mut">'+m.veredito+'</td></tr>').join('')+'</tbody></table>';
+    wire();
+  }
+
+  function wire(){
+    document.querySelectorAll('.exp-toggle').forEach(s=>{
+      s.onchange=async()=>{
+        const r=await jpost('/api/experimentos/toggle?key='+s.dataset.key+'&value='+encodeURIComponent(s.value));
+        if(r.erro){ msg(s.dataset.key,'erro: '+r.erro,'err'); return; }
+        const warn=(s.value==='per_team')?' — ⚠ o portão (D-74) NÃO comprovou ganho; use ciente disso':'';
+        msg(s.dataset.key,'aplicado: '+r.valor+warn, warn?'err':'ok');
+      };
+    });
+    document.querySelectorAll('.exp-apply').forEach(b=>{
+      b.onclick=async()=>{
+        const inp=document.querySelector('.exp-num[data-key="'+b.dataset.key+'"]');
+        const r=await jpost('/api/experimentos/toggle?key='+b.dataset.key+'&value='+encodeURIComponent(inp.value));
+        msg(b.dataset.key, r.erro?('erro: '+r.erro):('aplicado: '+r.valor), r.erro?'err':'ok');
+      };
+    });
+    document.querySelectorAll('.exp-gate').forEach(b=>b.onclick=()=>runGate(b));
+  }
+
+  async function runGate(btn){
+    const which=btn.dataset.which, key=btn.dataset.key;
+    btn.disabled=true; msg(key,'rodando o portão (alguns segundos)…','');
+    await jpost('/api/experimentos/gate?which='+which);
+    const poll=async()=>{
+      const s=await jget('/api/experimentos/gate/status');
+      if(s.state==='running'){ setTimeout(poll,1500); return; }
+      btn.disabled=false;
+      if(s.state==='error'){ msg(key,'erro: '+s.msg,'err'); return; }
+      const r=s.result;
+      if(!r||!r.n){ msg(key,'sem dados para o portão (precisa de match_ratings das Copas)','err'); return; }
+      msg(key,'ΔBrier '+r.mean.toFixed(5)+'  IC95 ['+r.ic_lo.toFixed(5)+', '+r.ic_hi.toFixed(5)+']  → '+
+        (r.keep?'ADOTAR (IC>0)':'inconclusivo/pior — manter per_game'), r.keep?'ok':'err');
+    };
+    setTimeout(poll,1500);
+  }
+  load();
+</script>
+</body>
+</html>

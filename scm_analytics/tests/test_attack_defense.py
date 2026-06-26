@@ -44,9 +44,10 @@ def test_strong_team_attacks_more(conn):
 
 
 def test_ad_off_is_identical():
-    """w_ad=0 (default): passar ad_ved NÃO muda nada (sem regressão no modelo validado)."""
-    base = predict(200.0, 80.0)
-    with_ad0 = predict(200.0, 80.0, ad_ved=(0.2, 0.3, 0.5))
+    """w_ad=0 (explícito): passar ad_ved NÃO muda nada (default agora é 0.5, v0.4-ad)."""
+    p0 = replace(PredictParams(), w_ad=0.0)
+    base = predict(200.0, 80.0, p0)
+    with_ad0 = predict(200.0, 80.0, p0, ad_ved=(0.2, 0.3, 0.5))
     assert base["p_v"] == pytest.approx(with_ad0["p_v"], abs=1e-12)
     assert base["p_e"] == pytest.approx(with_ad0["p_e"], abs=1e-12)
 

@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8">
+<script>(function(){try{var s=localStorage.getItem('scm-theme');var t=s||((window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light');document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%232563eb'/><text x='16' y='22' font-size='17' font-weight='700' text-anchor='middle' fill='white' font-family='Segoe UI,Arial'>S</text></svg>">
+<title>SCM Analytics — Monitor</title>
+<style>
+  :root{--bg:#fff;--panel:#f7f8fa;--text:#1c1f23;--muted:#6b7280;--border:#e5e7eb;--border-strong:#d2d6db;
+    --accent:#2563eb;--accent-weak:#eef3ff;--accent-strong:#1d57d6;--radius:8px;--hover:#eceff3;--input-bg:#fff}
+  *{box-sizing:border-box} html,body{margin:0}
+  body{background:var(--bg);color:var(--text);font-family:-apple-system,"Segoe UI",Roboto,Arial,sans-serif;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .tnum{font-variant-numeric:tabular-nums}
+  .app{display:flex;min-height:100vh}
+  .sidebar{width:210px;flex:none;background:var(--panel);border-right:1px solid var(--border);padding:16px 12px;display:flex;flex-direction:column;position:sticky;top:0;height:100vh}
+  .sb-brand{font-weight:600;font-size:15px;padding:4px 8px 16px;letter-spacing:-.01em}
+  .sb-brand span{display:block;color:var(--muted);font-weight:400;font-size:12px;margin-top:2px}
+  .sb-nav{display:flex;flex-direction:column;gap:2px}
+  .sb-nav a{display:block;padding:9px 11px;border-radius:6px;color:var(--text);text-decoration:none;font-size:14px}
+  .sb-nav a:hover{background:var(--hover)}
+  .sb-nav a.active{background:var(--accent-weak);color:var(--accent);font-weight:500}
+  .sb-foot{margin-top:auto;color:var(--muted);font-size:11px;padding-top:12px;border-top:1px solid var(--border)}
+  .content{flex:1;min-width:0}
+  main{max-width:920px;margin:0 auto;padding:28px 24px 48px}
+  h1{font-size:18px;font-weight:600;margin:0 0 4px;letter-spacing:-.01em}
+  h2{font-size:14px;font-weight:600;margin:24px 0 4px}
+  .sub{color:var(--muted);margin:0 0 14px;font-size:13px}
+  .mut{color:var(--muted)}
+  code{background:var(--panel);border:1px solid var(--border);padding:1px 6px;border-radius:5px;font-size:12px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:8px}
+  .card{background:var(--bg);padding:12px 14px}
+  .card .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+  .card .v{font-size:20px;font-weight:600;margin-top:3px}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+  th,td{text-align:left;padding:8px 8px;border-bottom:1px solid var(--border);white-space:nowrap}
+  th{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;font-weight:500}
+  tr:last-child td{border-bottom:none} td.r,th.r{text-align:right}
+  .b-lo{color:#16a34a} .b-hi{color:#b45309}
+  .empty{border:1px dashed var(--border-strong);border-radius:var(--radius);padding:28px;text-align:center;color:var(--muted)}
+  .foot{color:var(--muted);font-size:12px;margin-top:22px}
+  @media(max-width:720px){.app{flex-direction:column}.sidebar{width:auto;height:auto;position:static;flex-direction:row;align-items:center;gap:8px;overflow-x:auto;padding:8px 12px}.sb-brand{padding:0 8px 0 4px;white-space:nowrap}.sb-brand span{display:none}.sb-nav{flex-direction:row}.sb-foot{display:none}}
+  :root[data-theme="dark"]{--bg:#0f1115;--panel:#171a21;--text:#e6e8eb;--muted:#98a2b3;--border:#272c36;
+    --border-strong:#39404c;--accent:#4f8cff;--accent-weak:#18233b;--accent-strong:#6ba0ff;--hover:#222a37;--input-bg:#11151c}
+  [data-theme="dark"] body{background:var(--bg);color:var(--text)}
+  [data-theme="dark"] .sidebar,[data-theme="dark"] .card,[data-theme="dark"] .empty{background:var(--panel)}
+</style>
+</head>
+<body>
+<div class="app">
+{% set active='monitor' %}
+{% include '_sidebar.html' %}
+<div class="content">
+<main>
+  <h1>Monitor da Copa</h1>
+  <p class="sub">Mede o modelo no torneio <b>real</b>, jogo a jogo (registro imutável). Detecta <b>drift</b>. Modelo: <span id="modelver" class="mut">…</span>. Não muda nada — é instrumentação.</p>
+  <div id="body">
+    <div id="cards" class="cards"></div>
+    <div id="relbox"></div>
+    <div id="mktbox"></div>
+    <p class="foot"><span id="open"></span> Probabilidade, não certeza. — D-76</p>
+  </div>
+</main>
+</div>
+</div>
+<script>
+  const $=id=>document.getElementById(id);
+  const jget=async u=>(await fetch(u)).json();
+  const pct=x=>(x*100).toFixed(0)+'%';
+  const card=(k,v)=>'<div class="card"><div class="k">'+k+'</div><div class="v">'+v+'</div></div>';
+
+  async function load(){
+    let d,t;
+    try{ [d,t]=await Promise.all([jget('/api/monitor'), jget('/api/teams')]); }
+    catch(e){ $('body').innerHTML='<div class="empty">Não consegui carregar o monitor.</div>'; return; }
+    const sm=$('model'); if(sm) sm.textContent='modelo '+((t&&t.model)||'');
+    const mv=$('modelver'); if(mv) mv.textContent=(t&&t.model)||'—';
+    const c=(d&&d.calibration)||{};
+    if(!c.n){
+      $('body').innerHTML='<div class="empty">Nenhum jogo com resultado ainda.<br>Vá em <b>Prospectivo</b>, registre a rodada e clique <b>Buscar resultados</b> — o monitor acende sozinho.</div>';
+      return;
+    }
+    $('cards').innerHTML = card('Jogos fechados', c.n)
+      + card('Brier modelo', c.brier_model.toFixed(4))
+      + card('Edge vs uniforme', (c.edge_vs_uniform>=0?'+':'')+c.edge_vs_uniform.toFixed(4))
+      + card('ECE (calibração)', c.ece.toFixed(3));
+    let rel='<table><thead><tr><th class="r">Confiança prevista</th><th class="r">Acerto observado</th><th class="r">n</th></tr></thead><tbody>';
+    (c.reliability||[]).forEach(r=>{
+      const drift=Math.abs(r.pred-r.obs);
+      rel+='<tr><td class="r tnum">'+pct(r.pred)+'</td><td class="r tnum '+(drift>0.12?'b-hi':'b-lo')+'">'+pct(r.obs)+'</td><td class="r tnum mut">'+r.n+'</td></tr>';
+    });
+    rel+='</tbody></table>';
+    $('relbox').innerHTML='<h2>Calibração — previsto vs. observado (top pick)</h2>'
+      +'<p class="sub">Quando "observado" descola de "previsto", o modelo derivou. ECE baixo = bem calibrado.</p>'+rel;
+    const m=(d&&d.market)||{};
+    if(m.n){
+      $('mktbox').innerHTML='<h2>vs Mercado — '+m.n+' jogos com odds</h2><div class="cards">'
+        + card('Brier modelo', m.brier_model.toFixed(4)) + card('Brier mercado', m.brier_market.toFixed(4))
+        + card('Brier blend', m.brier_blend.toFixed(4)) + card('Edge na perna escolhida', (m.edge_vs_market*100).toFixed(1)+' pp')
+        + '</div>';
+    }else{
+      $('mktbox').innerHTML='<h2>vs Mercado</h2><p class="sub">Sem odds gravadas — ingira com <code>python -m scm.odds ingest</code> para comparar com o mercado/CLV.</p>';
+    }
+    if(d.n_open) $('open').textContent=d.n_open+' jogo(s) registrado(s) ainda em aberto.';
+  }
+  load();
+</script>
+</body>
+</html>

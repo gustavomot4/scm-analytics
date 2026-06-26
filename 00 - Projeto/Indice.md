@@ -22,6 +22,7 @@ Vault de **planejamento e execução** de um sistema local e gratuito de previs�
 ```
 00 - Projeto/        contexto, modelo final, stack, índice
 01 - Planejamento/   contrato v5 + históricos (v1–v4) + auditorias + pesquisa
+- [[Tempo do gol + cartoes-escanteios (StatsBomb, 2026-06-25)]] — mercados de tempo do gol (D-71) e cartões/escanteios (D-72)
 02 - Modelos/        uma nota por bloco matemático
 03 - Dados/          fontes, esquema SQLite, registro imutável
 04 - Desenvolvimento/ backlog, decisões, design do backtest, plano do baseline

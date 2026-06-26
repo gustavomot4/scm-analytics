@@ -76,8 +76,9 @@ _SIM_CACHE = {}
 
 
 def _sim_fingerprint(conn):
+    from . import config as _cfg   # inclui os flags de simulação: trocar na página Experimentos invalida o cache
     r = conn.execute("SELECT COUNT(*), MAX(date) FROM matches").fetchone()
-    return f"{r[0]}|{r[1]}|{MODEL_VERSION}"
+    return f"{r[0]}|{r[1]}|{MODEL_VERSION}|{getattr(_cfg,'SIM_SIGMA_MODE','per_game')}|{getattr(_cfg,'SIM_AD_BLEND',0.0)}"
 
 
 def _run_sim_job(kind, sims, key, db_path, cfg_path):
@@ -105,6 +106,45 @@ def _run_sim_job(kind, sims, key, db_path, cfg_path):
         _SIM.update(state="done", pct=100)
     except Exception as e:   # noqa: BLE001 — reporta no painel
         _SIM.update(state="error", msg=str(e))
+
+
+# --- Página "Experimentos" (D-75): ativa flags de SIMULAÇÃO ao vivo + roda o portão na UI ---
+# Catálogo: os de 'sim' têm toggle ao vivo (seguros); os de 'modelo' são SÓ LEITURA (mudá-los
+# exige rebuild+versão, senão a produção diverge do backtest). Vereditos = resultados dos portões.
+_EXP_SIM = [
+    {"key": "SIM_SIGMA_MODE", "nome": "Incerteza correlacionada (σ por-time)", "tipo": "toggle",
+     "valores": ["per_game", "per_team"], "gate": "inconclusivo",
+     "veredito": "ΔBrier avanço IC95 cruza zero (D-74) — não comprova ganho", "gatekey": "simvar"},
+    {"key": "SIM_AD_BLEND", "nome": "Mistura AD no λ da simulação", "tipo": "number",
+     "gate": "adotado", "veredito": "major +0,0071 / all +0,0050, IC>0", "gatekey": None},
+]
+_EXP_MODELO = [
+    {"nome": "Perna ataque/defesa (AD)", "gate": "adotado", "veredito": "+0,0039 IC>0 (v0.4)"},
+    {"nome": "Altitude", "gate": "adotado", "veredito": "+0,049 nos jogos de altitude (D-18)"},
+    {"nome": "Curva de empate empírica", "gate": "adotado", "veredito": "tail corrigido, Brier não regrediu (D-26)"},
+    {"nome": "Tempo do gol", "gate": "adotado", "veredito": "±1,2pp previsto×observado (D-71)"},
+    {"nome": "Prior de xG na perna AD", "gate": "rejeitado", "veredito": "+0,0002 ruído, IC cruza zero (D-50)"},
+    {"nome": "Estilo (tendência de gols)", "gate": "rejeitado", "veredito": "ΔBrier-BTTS IC cruza zero (D-23)"},
+    {"nome": "Dixon-Coles", "gate": "rejeitado", "veredito": "sem ganho (D-39/40)"},
+    {"nome": "σ de Glicko", "gate": "rejeitado", "veredito": "cobertura de banda não passou (D-42)"},
+    {"nome": "Calor (proxy WBGT)", "gate": "rejeitado", "veredito": "+0,0007 IC cruza zero (D-19)"},
+    {"nome": "Reversão à média por recência", "gate": "rejeitado", "veredito": "piora o Brier (calibrate_recency)"},
+]
+_GATE = {"state": "idle", "which": "", "result": None, "msg": ""}
+_GATE_LOCK = threading.Lock()
+
+
+def _run_gate_job(which, db_path):
+    try:
+        with db.session(db_path) as conn:
+            if which == "simvar":
+                from .calibrate_simvar import run_gate
+                r = run_gate(conn, sims=4000)
+            else:
+                raise ValueError(f"portão desconhecido: {which}")
+        _GATE.update(state="done", result=r)
+    except Exception as e:   # noqa: BLE001
+        _GATE.update(state="error", msg=str(e))
 
 
 def create_app(db_path=None):
@@ -217,6 +257,62 @@ def create_app(db_path=None):
         with db.session(app.config["DB"]) as conn:
             data = dashboard_data(conn)
         return jsonify(data)
+
+    # --- Monitor (D-76): calibração/ECE/drift + skill vs mercado da Copa real (operacional) ---
+    @app.get("/monitor")
+    def monitor_page():
+        return render_template("monitor.html")
+
+    @app.get("/api/monitor")
+    def api_monitor():
+        from .monitor import summary
+        with db.session(app.config["DB"]) as conn:
+            return jsonify(summary(conn))
+
+    # --- Experimentos (D-75): toggles de SIMULAÇÃO ao vivo + catálogo de modelo só-leitura ---
+    @app.get("/experimentos")
+    def experimentos_page():
+        return render_template("experimentos.html")
+
+    @app.get("/api/experimentos")
+    def api_experimentos():
+        from . import config as _cfg
+        ovr = _cfg.current_overrides()
+        sim = []
+        for it in _EXP_SIM:
+            sim.append({**it, "valor": ovr.get(it["key"])})
+        return jsonify({"sim": sim, "modelo": _EXP_MODELO, "model": MODEL_VERSION})
+
+    @app.post("/api/experimentos/toggle")
+    def api_exp_toggle():
+        """Liga/desliga um flag de SIMULAÇÃO (seguro: não toca em predictions/versão)."""
+        from . import config as _cfg
+        key = request.args.get("key", "")
+        value = request.args.get("value", "")
+        try:
+            applied = _cfg.set_override(key, value)
+        except ValueError as e:
+            return jsonify({"erro": str(e)}), 400
+        return jsonify({"ok": True, "key": key, "valor": applied})
+
+    @app.post("/api/experimentos/gate")
+    def api_exp_gate():
+        """Roda um portão na UI (background, 1 por vez). Front faz POLL do mesmo endpoint."""
+        which = request.args.get("which", "simvar")
+        if _GATE["state"] == "running":
+            return jsonify({"running": True})
+        if _GATE["state"] == "done" and _GATE.get("which") == which and _GATE.get("result"):
+            return jsonify({"done": True, "result": _GATE["result"]})
+        with _GATE_LOCK:
+            if _GATE["state"] == "running":
+                return jsonify({"running": True})
+            _GATE.update(state="running", which=which, result=None, msg="")
+        threading.Thread(target=_run_gate_job, args=(which, app.config["DB"]), daemon=True).start()
+        return jsonify({"running": True})
+
+    @app.get("/api/experimentos/gate/status")
+    def api_exp_gate_status():
+        return jsonify(dict(_GATE))
 
     @app.post("/api/update")
     def api_update():

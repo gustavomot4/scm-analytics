@@ -19,6 +19,8 @@ from pathlib import Path
 
 from . import db
 from .predictor import PredictParams, predict, markets, MODEL_VERSION
+from .timing import load_curve as _load_timing_curve, timing_markets as _timing_markets
+from .setpiece import load_rates as _load_setpiece, match_setpiece as _match_setpiece
 from .factors import gd_alt
 from .ingest import DEFAULT_DB
 
@@ -224,6 +226,12 @@ def predict_match(conn, home, away, mando=0.0, city=None, sigma_ajuste=None, usa
     reliab, reliab_model = _reliab_from_meta(conn)
     conf = confidence(pr["p_v"], pr["p_e"], pr["p_d"], sigma_r_avg, reliab)
     mk = markets(pr["lambda_a"], pr["lambda_b"], PredictParams().max_goals)
+    _t = _timing_for(pr["lambda_a"], pr["lambda_b"])
+    if _t:
+        mk["timing"] = _t
+    _sp = _setpiece_for(a["name"], b["name"])
+    if _sp:
+        mk["setpiece"] = _sp
     return {"home": a["name"], "away": b["name"], "elo_home": a["elo"], "elo_away": b["elo"],
             "sigma_home": a["sigma_r"], "sigma_away": b["sigma_r"], "dr": dr, "sigma_dr": sigma_dr,
             "form_a": form_a, "form_b": form_b, "mando": mando,
@@ -233,6 +241,32 @@ def predict_match(conn, home, away, mando=0.0, city=None, sigma_ajuste=None, usa
             "provisional": bool(a["provisional"] or b["provisional"]),
             "reliab_stale": bool(reliab_model and reliab_model != MODEL_VERSION),
             "conf": conf, "conf_label": conf_label(conf), "markets": mk, **pr}
+
+
+_TIMING_CURVE = None
+_TIMING_TRIED = False
+
+
+def _timing_for(lam_a, lam_b):
+    """Mercados de tempo do gol (se dados/goal_timing.json existir). Curva carregada 1x."""
+    global _TIMING_CURVE, _TIMING_TRIED
+    if not _TIMING_TRIED:
+        _TIMING_CURVE = _load_timing_curve()
+        _TIMING_TRIED = True
+    return _timing_markets(lam_a, lam_b, _TIMING_CURVE) if _TIMING_CURVE else None
+
+
+_SETPIECE = None
+_SETPIECE_TRIED = False
+
+
+def _setpiece_for(home, away):
+    """Histórico cartões/escanteios + baseline (se dados/setpiece.csv existir). Carregado 1x."""
+    global _SETPIECE, _SETPIECE_TRIED
+    if not _SETPIECE_TRIED:
+        _SETPIECE = _load_setpiece()
+        _SETPIECE_TRIED = True
+    return _match_setpiece(home, away, _SETPIECE) if _SETPIECE else None
 
 
 def main(argv=None) -> int:

@@ -179,7 +179,7 @@ def build_ad_lambdas(conn, teams) -> dict:
     return out
 
 
-def _sim_group(teams, tab, played, rng, p=None, alt_venues=None, sig=None, ad_lam=None, alpha=0.0):
+def _sim_group(teams, tab, played, rng, p=None, alt_venues=None, sig=None, ad_lam=None, alpha=0.0, offsets=None):
     """Roda 1 grupo. Retorna lista ordenada [(team, pts, gd, gf)] do 1º ao 4º.
 
     N2 (D-37): se `alt_venues` traz a sede de altitude de um anfitrião (ex.: {"Mexico":
@@ -205,8 +205,11 @@ def _sim_group(teams, tab, played, rng, p=None, alt_venues=None, sig=None, ad_la
             # P4: propaga a incerteza do rating — amostra dr ~ N(dr, σ_dr) ANTES da λ.
             # Sem isto a sim trata o Elo como exato e superestima favoritos (Jensen).
             dr0 = tab[(a, b)][0]
-            sd = _pair_sigma(a, b, sig)
-            dr_s = rng.normal(dr0, sd) if sd > 0 else dr0
+            if offsets is not None:                  # σ por-time (P-S/D-74 cand.): 1 sorteio de força/time/sim
+                dr_s = dr0 + offsets.get(a, 0.0) - offsets.get(b, 0.0)   # mesma marginal, correlaciona os jogos do time
+            else:
+                sd = _pair_sigma(a, b, sig)          # σ por-jogo (atual): re-sorteia a cada jogo (subdispersa o torneio)
+                dr_s = rng.normal(dr0, sd) if sd > 0 else dr0
             _ga = gd_alt(city, a, b) if (city and p is not None) else 0.0
             la, lb = lambdas(dr_s, p if p is not None else PredictParams(), gd_alt=_ga)
             if ad_lam and alpha > 0 and (a, b) in ad_lam:   # P-A: mistura λ da perna AD (gols)
@@ -232,10 +235,13 @@ def _sim_group(teams, tab, played, rng, p=None, alt_venues=None, sig=None, ad_la
     return [(t, pts[t], gf[t] - ga[t], gf[t]) for t in rank]
 
 
-def _knockout_winner(a, b, tab, rng, eps, p=None, sig=None, ad_lam=None, alpha=0.0):
+def _knockout_winner(a, b, tab, rng, eps, p=None, sig=None, ad_lam=None, alpha=0.0, offsets=None):
     dr0 = tab[(a, b)][0]
-    sd = _pair_sigma(a, b, sig)
-    dr_s = rng.normal(dr0, sd) if sd > 0 else dr0        # P4: propaga σ no mata-mata
+    if offsets is not None:                              # σ por-time (P-S/D-74 cand.): força consistente no torneio
+        dr_s = dr0 + offsets.get(a, 0.0) - offsets.get(b, 0.0)
+    else:
+        sd = _pair_sigma(a, b, sig)
+        dr_s = rng.normal(dr0, sd) if sd > 0 else dr0    # P4: propaga σ no mata-mata (por-jogo)
     la, lb = lambdas(dr_s, p) if p is not None else (tab[(a, b)][1], tab[(a, b)][2])
     if ad_lam and alpha > 0 and (a, b) in ad_lam:        # P-A: mistura λ da perna AD (gols)
         lad, lbd = ad_lam[(a, b)]
@@ -247,12 +253,18 @@ def _knockout_winner(a, b, tab, rng, eps, p=None, sig=None, ad_lam=None, alpha=0
     return a if rng.random() < share_a else b
 
 
-def simulate_once(groups, tab, played, rng, p, alt_venues=None, sig=None, ad_lam=None, alpha=0.0):
+def simulate_once(groups, tab, played, rng, p, alt_venues=None, sig=None, ad_lam=None, alpha=0.0,
+                  sigma_mode="per_game"):
     """1 simulação completa pelo CHAVEAMENTO OFICIAL. Retorna (champion, finalists, semis, advancers)."""
+    # σ por-time (cand. P-S/D-74): sorteia 1 offset de força por seleção, COMPARTILHADO entre todos os
+    # jogos dela no torneio → correlaciona a campanha (mesma marginal por jogo). per_game = re-sorteio/jogo.
+    offsets = None
+    if sigma_mode == "per_team" and sig:
+        offsets = {t: rng.normal(0.0, sig.get(t, 0.0)) for teams in groups.values() for t in teams}
     firsts, seconds, thirds = {}, {}, []
     advancers = set()
     for g, teams in groups.items():
-        rank = _sim_group(teams, tab, played, rng, p, alt_venues, sig, ad_lam, alpha)
+        rank = _sim_group(teams, tab, played, rng, p, alt_venues, sig, ad_lam, alpha, offsets)
         firsts[g] = rank[0][0]; seconds[g] = rank[1][0]
         thirds.append((g,) + rank[2])              # (grupo, team, pts, gd, gf)
         advancers.add(firsts[g]); advancers.add(seconds[g])
@@ -270,9 +282,9 @@ def simulate_once(groups, tab, played, rng, p, alt_venues=None, sig=None, ad_lam
 
     win = {}
     for mid, a, b in R32:
-        win[mid] = _knockout_winner(team_of(a), team_of(b), tab, rng, p.eps_ko, p, sig, ad_lam, alpha)
+        win[mid] = _knockout_winner(team_of(a), team_of(b), tab, rng, p.eps_ko, p, sig, ad_lam, alpha, offsets)
     for mid, a, b in LATER:
-        win[mid] = _knockout_winner(win[a], win[b], tab, rng, p.eps_ko, p, sig, ad_lam, alpha)
+        win[mid] = _knockout_winner(win[a], win[b], tab, rng, p.eps_ko, p, sig, ad_lam, alpha, offsets)
     semis = {win[97], win[98], win[99], win[100]}
     finalists = {win[101], win[102]}
     return win[104], finalists, semis, advancers
@@ -290,13 +302,14 @@ def run(conn, config_path=DEFAULT_CONFIG, n_sims=20000, seed=12345, progress=Non
     alpha = getattr(_cfg, "SIM_AD_BLEND", 0.0)
     ad_lam = build_ad_lambdas(conn, teams) if alpha > 0 else None   # P-A: λ de gols na sim
     alt_venues = cfg.get("altitude_venues")   # N2: {time anfitrião: cidade-sede de altitude}
+    sigma_mode = getattr(_cfg, "SIM_SIGMA_MODE", "per_game")   # P-S/D-74: "per_team" = incerteza correlacionada (só após portão)
     rng = np.random.default_rng(seed)
     champ = {t: 0 for t in teams}
     fin = {t: 0 for t in teams}
     semi = {t: 0 for t in teams}
     adv = {t: 0 for t in teams}
     for _i in range(n_sims):
-        c, f, s, a = simulate_once(groups, tab, played, rng, p, alt_venues, sig, ad_lam, alpha)
+        c, f, s, a = simulate_once(groups, tab, played, rng, p, alt_venues, sig, ad_lam, alpha, sigma_mode)
         if progress and (_i & 511) == 0:
             progress(_i, n_sims)
         champ[c] += 1

@@ -2,6 +2,8 @@
 <html lang="pt-br">
 <head>
 <meta charset="utf-8">
+<script>/* tema: aplica preferência salva, senão a do sistema — antes do CSS, sem flash */
+(function(){try{var s=localStorage.getItem('scm-theme');var t=s||((window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light');document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%232563eb'/><text x='16' y='22' font-size='17' font-weight='700' text-anchor='middle' fill='white' font-family='Segoe UI,Arial'>S</text></svg>">
 <title>SCM Analytics — Previsão de partidas</title>
@@ -32,7 +34,7 @@
   .field{display:flex; flex-direction:column; gap:6px; min-width:0}
   label{font-size:12px; color:var(--muted); font-weight:500}
   input[type=text],select{height:36px; padding:0 10px; border:1px solid var(--border-strong);
-    border-radius:var(--radius-sm); background:#fff; color:var(--text); font:inherit; outline:none;}
+    border-radius:var(--radius-sm); background:var(--input-bg); color:var(--text); font:inherit; outline:none;}
   input[type=text]:focus,select:focus{border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-weak)}
   button.primary{height:36px; padding:0 18px; border:1px solid var(--accent); border-radius:var(--radius-sm);
     background:var(--accent); color:#fff; font:inherit; font-weight:500; cursor:pointer;}
@@ -95,7 +97,7 @@
   .sb-brand span{display:block;color:var(--muted);font-weight:400;font-size:12px;margin-top:2px}
   .sb-nav{display:flex;flex-direction:column;gap:2px}
   .sb-nav a{display:block;padding:9px 11px;border-radius:6px;color:var(--text);text-decoration:none;font-size:14px}
-  .sb-nav a:hover{background:#eceff3}
+  .sb-nav a:hover{background:var(--hover)}
   .sb-nav a.active{background:var(--accent-weak);color:var(--accent);font-weight:500}
   .sb-foot{margin-top:auto;color:var(--muted);font-size:11px;padding-top:12px;border-top:1px solid var(--border)}
   .content{flex:1;min-width:0}
@@ -111,18 +113,46 @@
   .explain .chip b{color:var(--text);font-weight:600}
   .explain .eq{color:var(--accent);font-weight:600}
 
+  /* Mercados em seções colapsáveis (estilo casa de aposta). Usa as vars => dark mode automático. */
+  .mkts{margin-top:8px}
+  .mkts>details{border:1px solid var(--border);border-radius:var(--radius-sm);margin-top:8px;background:var(--bg);overflow:hidden}
+  .mkts>details[open]{box-shadow:var(--shadow)}
+  .mkts summary{cursor:pointer;list-style:none;padding:11px 14px;background:var(--panel);
+    display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .mkts summary:hover{background:var(--hover)}
+  .mkts summary::-webkit-details-marker{display:none}
+  .mkts summary .ttl{display:flex;flex-direction:column;gap:2px;font-weight:600;font-size:13px}
+  .mkts summary .sub2{font-weight:400;font-size:11.5px;color:var(--muted)}
+  .mkts summary .chev{color:var(--muted);font-size:11px;flex:none;transition:transform .15s}
+  .mkts details[open] summary .chev{transform:rotate(180deg)}
+  .mkbody{padding:2px 14px 10px}
+  .mkrow{display:flex;align-items:baseline;justify-content:space-between;gap:14px;
+    padding:7px 0;border-top:1px solid var(--border);font-size:13px}
+  .mkbody .mkrow:first-child{border-top:none}
+  .mkrow .nm em{display:block;font-style:normal;color:var(--muted);font-size:11.5px;margin-top:1px}
+  .mkrow .vl{font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .mktab{width:100%;border-collapse:collapse;font-size:13px;margin:6px 0 2px}
+  .mktab th,.mktab td{padding:5px 4px;border-bottom:1px solid var(--border);text-align:right}
+  .mktab th:first-child,.mktab td:first-child{text-align:left}
+  .mktab th{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;font-weight:500}
+  .mktab tr:last-child td{border-bottom:none}
+  .grid-sc{border-collapse:collapse;font-size:12px;margin-top:6px;width:100%;min-width:330px}
+  .grid-sc td,.grid-sc th{padding:5px 3px;text-align:center;border:1px solid var(--border)}
+  .grid-sc th{font-size:10.5px;color:var(--muted);font-weight:500;border:none;white-space:nowrap}
+  .grid-sc .cn{font-variant-numeric:tabular-nums}
   /* P7: dark mode ADITIVO (só no modo escuro do SO; não afeta o claro). Sobrescreve as vars
      e as superfícies que eram brancas fixas. */
-  @media (prefers-color-scheme: dark){
-    :root{--bg:#0f1115;--panel:#171a21;--text:#e6e8eb;--muted:#98a2b3;--border:#272c36;
-      --border-strong:#39404c;--accent:#4f8cff;--accent-weak:#18233b;--accent-strong:#6ba0ff;
-      --win:#4f8cff;--draw:#8a93a3;--loss:#aeb6c2}
-    body{background:var(--bg);color:var(--text)}
-    input,select,textarea{background:#11151c;color:var(--text);border-color:var(--border-strong)}
-    .result,.stat,.card,.m,.mktcmp,.tabs button,.btn,.ctl button,.chip{background:var(--panel)}
-    .sidebar{background:var(--panel)}
-    .error,.warn{background:#2a1416;border-color:#5a2a2a;color:#f3b6b6}
-  }
+  /* Tema escuro — dirigido por [data-theme] (botão claro/escuro na barra lateral).
+     --hover e --input-bg corrigem o hover e os campos de texto que sumiam no escuro. */
+  :root{--hover:#eceff3;--input-bg:#ffffff}
+  :root[data-theme="dark"]{--bg:#0f1115;--panel:#171a21;--text:#e6e8eb;--muted:#98a2b3;--border:#272c36;
+    --border-strong:#39404c;--accent:#4f8cff;--accent-weak:#18233b;--accent-strong:#6ba0ff;
+    --win:#4f8cff;--draw:#8a93a3;--loss:#aeb6c2;--hover:#222a37;--input-bg:#11151c}
+  [data-theme="dark"] body{background:var(--bg);color:var(--text)}
+  [data-theme="dark"] input,[data-theme="dark"] select,[data-theme="dark"] textarea{background:var(--input-bg);color:var(--text);border-color:var(--border-strong)}
+  [data-theme="dark"] .result,[data-theme="dark"] .stat,[data-theme="dark"] .card,[data-theme="dark"] .m,[data-theme="dark"] .mktcmp,[data-theme="dark"] .tabs button,[data-theme="dark"] .btn,[data-theme="dark"] .ctl button,[data-theme="dark"] .chip{background:var(--panel)}
+  [data-theme="dark"] .sidebar{background:var(--panel)}
+  [data-theme="dark"] .error,[data-theme="dark"] .warn{background:#2a1416;border-color:#5a2a2a;color:#f3b6b6}
 </style>
 </head>
 <body>
@@ -161,7 +191,7 @@
       </div>
       <datalist id="teams"></datalist>
     </form>
-    <button type="button" id="swap" title="Trocar mandante e visitante" style="margin-top:10px;height:30px;padding:0 12px;border:1px solid var(--border-strong);border-radius:6px;background:#fff;font:inherit;font-size:13px;cursor:pointer">⇄ trocar lados</button>
+    <button type="button" id="swap" title="Trocar mandante e visitante" style="margin-top:10px;height:30px;padding:0 12px;border:1px solid var(--border-strong);border-radius:6px;background:var(--input-bg);font:inherit;font-size:13px;cursor:pointer">⇄ trocar lados</button>
     <label class="ko-toggle"><input type="checkbox" id="ko"> Jogo eliminatório — mostrar probabilidade de <b>avançar</b> (empate → prorrogação/pênaltis)</label>
     <div class="oddsrow">
       <span class="lbl">Odds de mercado (opcional):</span>
@@ -203,16 +233,8 @@
         </div>
       </div>
       <div class="mkt">
-        <div class="colhead">Mercados <span class="hint">— derivados do mesmo Poisson, sem novo modelo</span></div>
-        <div class="mkt-grid">
-          <div>
-            <table>
-              <thead><tr><th>Gols</th><th class="r">Over</th><th class="r">Under</th></tr></thead>
-              <tbody id="ou"></tbody>
-            </table>
-          </div>
-          <div class="stats" id="mkt2"></div>
-        </div>
+        <div class="colhead">Mercados <span class="hint">— todos derivados do mesmo Poisson de gols; nada de modelo novo. Clique para abrir cada grupo.</span></div>
+        <div class="mkts" id="mkts"></div>
       </div>
       <div class="footer" id="regrow" style="border-top:none;padding-bottom:0"></div>
       <div class="footer">Probabilidade, não certeza — não é recomendação de aposta.</div>
@@ -300,20 +322,7 @@
       ['Ambos marcam', (d.p_btts*100).toFixed(0) + '%'],
     ].map(([k,v]) => `<div class="stat"><div class="k">${k}</div><div class="v tnum">${v}</div></div>`).join('');
     $('scores').innerHTML = d.scores.map(s => `<tr><td class="tnum">${s[0]}</td><td class="r tnum">${(s[1]*100).toFixed(0)}%</td></tr>`).join('');
-    const m = d.markets || {over:{},under:{},first_to_score:{},double_chance:{},handicap:{}};
-    $('ou').innerHTML = ['0.5','1.5','2.5','3.5','4.5'].map(l =>
-      `<tr><td class="tnum">${l}</td><td class="r tnum">${(m.over[l]*100).toFixed(0)}%</td><td class="r tnum">${(m.under[l]*100).toFixed(0)}%</td></tr>`).join('');
-    const favH = d.p_v >= d.p_d, favHc = favH ? m.handicap['a_-1.5'] : m.handicap['b_-1.5'], favNm = favH ? d.home : d.away;
-    $('mkt2').innerHTML = [
-      ['Marca 1º ' + d.home, (m.first_to_score.a*100).toFixed(0)+'%'],
-      ['Marca 1º ' + d.away, (m.first_to_score.b*100).toFixed(0)+'%'],
-      ['Sem gols', (m.first_to_score.none*100).toFixed(0)+'%'],
-      ['Não sofre ' + d.home, (m.clean_sheet_a*100).toFixed(0)+'%'],
-      ['Não sofre ' + d.away, (m.clean_sheet_b*100).toFixed(0)+'%'],
-      ['Dupla 1X', (m.double_chance['1X']*100).toFixed(0)+'%'],
-      ['Dupla X2', (m.double_chance['X2']*100).toFixed(0)+'%'],
-      ['Vencer +2 ' + favNm, (favHc*100).toFixed(0)+'%'],
-    ].map(([k,v]) => `<div class="stat"><div class="k">${k}</div><div class="v tnum">${v}</div></div>`).join('');
+    renderMarkets(d);
     $('confbar').style.width = Math.round(d.conf) + '%';
     $('conflbl').innerHTML = '<b>' + Math.round(d.conf) + ' / 100</b> — ' + d.conf_label;
     $('regrow').innerHTML = 'Jogo real da Copa? <a href="/prospectivo?home='+encodeURIComponent(d.home)+'&away='+encodeURIComponent(d.away)+'" style="color:var(--accent);font-weight:500">Registrar no painel Prospectivo →</a>';
@@ -322,6 +331,120 @@
     $('result').scrollIntoView({behavior:'smooth', block:'nearest'});
   }
 
+  const pInt = x => (x*100).toFixed(0) + '%';
+  function _mkrow(name, expl, val){
+    return '<div class="mkrow"><span class="nm">' + name + (expl ? '<em>'+expl+'</em>' : '') + '</span><span class="vl">' + val + '</span></div>';
+  }
+  function _section(title, sub, open, body){
+    return '<details'+(open?' open':'')+'><summary><span class="ttl">'+title+'<span class="sub2">'+sub+'</span></span><span class="chev">&#9662;</span></summary><div class="mkbody">'+body+'</div></details>';
+  }
+  function _scoreGrid(g, A, B){
+    let mx=0; for(const r of g) for(const c of r) if(c>mx) mx=c;
+    const head = '<tr><th></th>'+g[0].map((_,j)=>'<th>'+B+' '+j+'</th>').join('')+'</tr>';
+    const rows = g.map((r,i)=>'<tr><th>'+A+' '+i+'</th>'+r.map(c=>{
+      const a = mx>0 ? (c/mx*0.6).toFixed(2) : 0; const v=c*100;
+      return '<td class="cn" style="background:rgba(37,99,235,'+a+')">'+(v<0.5?'&middot;':v.toFixed(0))+'</td>';
+    }).join('')+'</tr>').join('');
+    return '<div style="overflow-x:auto"><table class="grid-sc">'+head+rows+'</table></div>'
+      + '<div style="font-size:11px;color:var(--muted);margin-top:6px">Números em %. Células mais escuras = placar mais provável. Mostra 0&ndash;5 por time; placares maiores omitidos.</div>';
+  }
+  function renderMarkets(d){
+    const m = d.markets; const box=$('mkts'); if(!box) return; if(!m){ box.innerHTML=''; return; }
+    const A=d.home, B=d.away, P=pInt; const out=[];
+    out.push(_section('Resultado &amp; dupla chance','Quem vence, com rede de proteção',true,
+      _mkrow('Dupla chance 1X', A+' vence ou empata', P(m.double_chance['1X']))
+      + _mkrow('Dupla chance 12', A+' ou '+B+' vence (sem empate)', P(m.double_chance['12']))
+      + _mkrow('Dupla chance X2', B+' vence ou empata', P(m.double_chance['X2']))
+      + _mkrow('Empate anula &mdash; '+A, A+' vence; se empatar, devolve a aposta', P(m.dnb.a))
+      + _mkrow('Empate anula &mdash; '+B, B+' vence; se empatar, devolve a aposta', P(m.dnb.b))
+      + _mkrow('Vencer sem sofrer &mdash; '+A, A+' vence E não leva gol', P(m.win_to_nil.a))
+      + _mkrow('Vencer sem sofrer &mdash; '+B, B+' vence E não leva gol', P(m.win_to_nil.b))));
+    const ouRows = ['0.5','1.5','2.5','3.5','4.5','5.5','6.5'].map(l =>
+      '<tr><td class="tnum">'+l.replace('.',',')+'</td><td class="tnum">'+P(m.over[l])+'</td><td class="tnum">'+P(m.under[l])+'</td></tr>').join('');
+    out.push(_section('Total de gols &mdash; over/under &amp; par/ímpar','Soma dos gols dos dois times',true,
+      '<table class="mktab"><thead><tr><th>Linha</th><th>Over (mais)</th><th>Under (menos)</th></tr></thead><tbody>'+ouRows+'</tbody></table>'
+      + _mkrow('Total par','soma é par: 0, 2, 4&hellip;', P(m.odd_even.even))
+      + _mkrow('Total ímpar','soma é ímpar: 1, 3, 5&hellip;', P(m.odd_even.odd))));
+    const teKeys=['0','1','2','3','4','5','6','7+'];
+    out.push(_section('Total exato &amp; faixas (multigols)','Número exato de gols, ou um intervalo',false,
+      teKeys.map(k=>_mkrow('Exatamente '+k+' gol'+(k==='1'?'':'s'),'',P(m.total_exato[k]))).join('')
+      + _mkrow('Faixa 0&ndash;1 gol','jogo travado',P(m.multigols['0-1']))
+      + _mkrow('Faixa 1&ndash;2 gols','',P(m.multigols['1-2']))
+      + _mkrow('Faixa 2&ndash;3 gols','',P(m.multigols['2-3']))
+      + _mkrow('Faixa 1&ndash;3 gols','',P(m.multigols['1-3']))
+      + _mkrow('Faixa 2&ndash;4 gols','',P(m.multigols['2-4']))
+      + _mkrow('4 gols ou mais','jogo aberto',P(m.multigols['4+']))));
+    const ttRows = ['0.5','1.5','2.5','3.5'].map(l =>
+      '<tr><td>'+l.replace('.',',')+'</td><td class="tnum">'+P(m.team_a_over[l])+'</td><td class="tnum">'+P(m.team_b_over[l])+'</td></tr>').join('');
+    out.push(_section('Gols por time &amp; ambos marcam','Produção ofensiva de cada seleção',false,
+      _mkrow('Ambos marcam &mdash; sim','os dois times marcam', P(m.btts))
+      + _mkrow('Ambos marcam &mdash; não','pelo menos um não marca', P(m.btts_no))
+      + _mkrow('Não sofre gol &mdash; '+A, A+' não leva gol', P(m.clean_sheet_a))
+      + _mkrow('Não sofre gol &mdash; '+B, B+' não leva gol', P(m.clean_sheet_b))
+      + '<table class="mktab"><thead><tr><th>Time marca mais de</th><th>'+A+'</th><th>'+B+'</th></tr></thead><tbody>'+ttRows+'</tbody></table>'));
+    out.push(_section('Handicap &amp; margem de vitória','Vantagem em gols e vitória por diferença exata',false,
+      _mkrow('Handicap &minus;1,5 &mdash; '+A, A+' vence por 2+ gols', P(m.handicap['a_-1.5']))
+      + _mkrow('Handicap &minus;1,5 &mdash; '+B, B+' vence por 2+ gols', P(m.handicap['b_-1.5']))
+      + _mkrow('Handicap &minus;2,5 &mdash; '+A, A+' vence por 3+ gols', P(m.handicap['a_-2.5']))
+      + _mkrow('Handicap &minus;2,5 &mdash; '+B, B+' vence por 3+ gols', P(m.handicap['b_-2.5']))
+      + _mkrow('Handicap +1,5 &mdash; '+A, A+' não perde por 2+ (cobre)', P(m.handicap['a_+1.5']))
+      + _mkrow('Handicap +1,5 &mdash; '+B, B+' não perde por 2+ (cobre)', P(m.handicap['b_+1.5']))
+      + _mkrow(A+' vence por exatamente 1','',P(m.win_margin.a_1))
+      + _mkrow(A+' vence por exatamente 2','',P(m.win_margin.a_2))
+      + _mkrow(A+' vence por 3 ou mais','',P(m.win_margin['a_3+']))
+      + _mkrow(B+' vence por exatamente 1','',P(m.win_margin.b_1))
+      + _mkrow(B+' vence por exatamente 2','',P(m.win_margin.b_2))
+      + _mkrow(B+' vence por 3 ou mais','',P(m.win_margin['b_3+']))
+      + _mkrow('Empate (margem 0)','',P(m.win_margin.draw))));
+    out.push(_section('Placar exato (grade)','Linhas = gols do '+A+'; colunas = gols do '+B,false,_scoreGrid(m.score_grid,A,B)));
+    const rb=m.result_btts, ro=m.result_over25;
+    out.push(_section('Combinadas (resultado + gols)','Resultado junto com "ambos marcam" ou "over 2,5"',false,
+      '<div style="font-size:11.5px;color:var(--muted);margin:2px 0">Resultado + ambos marcam</div>'
+      + _mkrow(A+' vence + ambos marcam','',P(rb.home_yes))
+      + _mkrow(A+' vence + não ambos','',P(rb.home_no))
+      + _mkrow('Empate + ambos marcam','',P(rb.draw_yes))
+      + _mkrow('0&ndash;0 (empate sem gols)','',P(rb.draw_no))
+      + _mkrow(B+' vence + ambos marcam','',P(rb.away_yes))
+      + _mkrow(B+' vence + não ambos','',P(rb.away_no))
+      + '<div style="font-size:11.5px;color:var(--muted);margin:8px 0 2px">Resultado + over/under 2,5</div>'
+      + _mkrow(A+' vence + over 2,5','',P(ro.home_o))
+      + _mkrow(A+' vence + under 2,5','',P(ro.home_u))
+      + _mkrow('Empate + over 2,5','',P(ro.draw_o))
+      + _mkrow('Empate + under 2,5','',P(ro.draw_u))
+      + _mkrow(B+' vence + over 2,5','',P(ro.away_o))
+      + _mkrow(B+' vence + under 2,5','',P(ro.away_u))));
+    out.push(_section('Quem marca primeiro','Aproximação: taxa de gols constante no tempo',false,
+      _mkrow('Marca primeiro &mdash; '+A,'',P(m.first_to_score.a))
+      + _mkrow('Marca primeiro &mdash; '+B,'',P(m.first_to_score.b))
+      + _mkrow('Nenhum gol (0&ndash;0)','',P(m.first_to_score.none))));
+    if(m.timing){var tm=m.timing;
+      out.push(_section('Tempo do gol','Quando sai o gol \u2014 curva emp\u00edrica de minutos (cobertura parcial: '+(tm.n_goals||'?')+' gols)',false,
+        _mkrow('Gol no 1\u00ba tempo','sai ao menos 1 gol at\u00e9 o intervalo',P(tm.goal_1h))
+        + _mkrow('Gol no 2\u00ba tempo','sai ao menos 1 gol no 2\u00ba tempo',P(tm.goal_2h))
+        + _mkrow('Gol nos dois tempos','marca em cada um dos tempos',P(tm.both_halves))
+        + _mkrow('1\u00ba gol at\u00e9 15 min','',P(tm.before['15']))
+        + _mkrow('1\u00ba gol at\u00e9 30 min','',P(tm.before['30']))
+        + _mkrow('Sem gols no jogo','0\u20130 no tempo normal',P(tm.no_goal))
+        + '<div style="font-size:11.5px;color:var(--muted);margin:8px 0 2px">Faixa do 1\u00ba gol do jogo</div>'
+        + Object.keys(tm.first_band).map(function(k){return _mkrow('1\u00ba gol '+k+' min','',P(tm.first_band[k]));}).join('')
+        + '<div style="font-size:11.5px;color:var(--muted);margin:8px 0 2px">Resultado no intervalo (HT)</div>'
+        + _mkrow('HT \u2014 '+A+' na frente','',P(tm.ht.home))
+        + _mkrow('HT \u2014 empate','inclui 0\u20130',P(tm.ht.draw))
+        + _mkrow('HT \u2014 '+B+' na frente','',P(tm.ht.away))
+      ));}
+    if(m.setpiece){var sp=m.setpiece;
+      out.push(_section('Cartões & escanteios (histórico)','Histórico StatsBomb \u2014 N\u00c3O é previsão por time (sem sinal no nosso teste); over/under é a média da competição',false,
+        '<div style="font-size:11.5px;color:var(--muted);margin:2px 0 4px">Média por jogo de cada seleção (amostra StatsBomb):</div>'
+        + _mkrow(A+' \u2014 cartões','média histórica ('+sp.home.n+' jogos)',sp.home.cards.toFixed(1))
+        + _mkrow(A+' \u2014 escanteios','média histórica',sp.home.corners.toFixed(1))
+        + _mkrow(B+' \u2014 cartões','média histórica ('+sp.away.n+' jogos)',sp.away.cards.toFixed(1))
+        + _mkrow(B+' \u2014 escanteios','média histórica',sp.away.corners.toFixed(1))
+        + '<div style="font-size:11.5px;color:var(--muted);margin:8px 0 2px">Over/under \u2014 baseline da competição ('+sp.media_jogo.cards+' cartões, '+sp.media_jogo.corners+' escanteios/jogo); N\u00c3O ajustado por seleção</div>'
+        + Object.keys(sp.over_cards).map(function(k){return _mkrow('Over '+k.replace('.',',')+' cartões','',P(sp.over_cards[k]));}).join('')
+        + Object.keys(sp.over_corners).map(function(k){return _mkrow('Over '+k.replace('.',',')+' escanteios','',P(sp.over_corners[k]));}).join('')
+      ));}
+    box.innerHTML = out.join('');
+  }
   function renderKo(){
     const d = lastData, el = $('koline');
     if(!d || !d.knockout || !$('ko').checked){ el.classList.remove('show'); return; }

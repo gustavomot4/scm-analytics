@@ -58,7 +58,7 @@ def test_register_settle_report_flow():
 def test_register_unknown_team_returns_error():
     c = _conn(); path = tempfile.mktemp(suffix=".csv")
     try:
-        r = R.register(c, "Brasil", "Bolivia", "2026-06-20", path=path)   # 'Brasil' (pt) não existe
+        r = R.register(c, "Atlantida", "Bolivia", "2026-06-20", path=path)   # nome inexistente (sem alias)
         assert r.get("erro") == "time não encontrado"
         assert not os.path.exists(path)        # nada gravado em caso de erro
     finally:
@@ -67,7 +67,7 @@ def test_register_unknown_team_returns_error():
         c.close()
 
 
-def test_dashboard_data(c=None):
+def test_dashboard_data():
     """dashboard_data (D-66): resumo + lista de jogos (vazio e populado)."""
     c = _conn(); path = tempfile.mktemp(suffix=".csv")
     try:

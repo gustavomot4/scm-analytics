@@ -60,7 +60,13 @@ class PredictParams:
                                   #   acima de ~0.7 o ECE degrada). Fonte independente de gols (corr ~0.95 vs 0.997).
     clamp_lo: float = 0.02
     clamp_hi: float = 0.96
-    eps_ko: float = 0.03         # mata-mata: leve vantagem do + forte no desempate [a calibrar]
+    eps_ko: float = 0.049        # mata-mata: leve vantagem do + forte no desempate [MEDIDO]
+                                 #   calibrate_ko sobre shootouts.csv (n=677): P(mais forte vence
+                                 #   nos pênaltis)=0,549 -> ε̂=+0,049 IC95 Wilson [+0,012,+0,087].
+                                 #   Fecha o placeholder (era 0,03, dentro do IC). Só-simulação,
+                                 #   sem rebuild. Efeito no título é pequeno (~3 disputas/Copa);
+                                 #   gate de título é sub-powered, então adota-se por calibração
+                                 #   direta do parâmetro, não por portão de Brier de avanço.
 
 
 def gd_of(dr: float, p: PredictParams) -> float:
@@ -381,6 +387,11 @@ def markets(lam_a: float, lam_b: float, max_goals: int = 10) -> dict:
     Cartoes/escanteios/tempo NAO saem daqui (exigem dado proprio). Backward-compatible: mantem
     as chaves antigas (over/under/btts/team_*_over/clean_sheet/double_chance/handicap/first_to_score).
     """
+    # Cauda truncada (audit B1): com max_goals baixo as PARTIÇÕES (total_exato/win_margin/
+    # result_*) somavam Σpa·Σpb < 1 em λ alto (a perna AD vai a lam_max=8). Piso de 20 deixa
+    # a massa truncada < 1e-7 mesmo em λ=8, sem mexer nas células exatas (clean_sheet, draw_no,
+    # first_to_score, team_*_over independem do teto). Custo desprezível (1 chamada/jogo).
+    max_goals = max(int(max_goals), 20)
     pa = [_pois(i, lam_a) for i in range(max_goals + 1)]
     pb = [_pois(j, lam_b) for j in range(max_goals + 1)]
     M = [[pa[i] * pb[j] for j in range(max_goals + 1)] for i in range(max_goals + 1)]
@@ -414,11 +425,11 @@ def markets(lam_a: float, lam_b: float, max_goals: int = 10) -> dict:
         "under": {str(l): 1.0 - over(l) for l in lines},
         "btts": btts, "btts_no": 1.0 - btts,
         "odd_even": {"odd": odd, "even": 1.0 - odd},
-        "total_exato": {**{str(k): total[k] for k in range(7)}, "7+": sum(total[7:])},
+        "total_exato": {**{str(k): total[k] for k in range(7)}, "7+": max(0.0, 1.0 - sum(total[:7]))},
         "multigols": {"0-1": band(0, 1), "1-2": band(1, 2), "2-3": band(2, 3),
                       "1-3": band(1, 3), "2-4": band(2, 4), "4+": over(3.5)},
-        "team_a_over": {str(l): sum(pa[k] for k in range(int(l) + 1, max_goals + 1)) for l in (0.5, 1.5, 2.5, 3.5)},
-        "team_b_over": {str(l): sum(pb[k] for k in range(int(l) + 1, max_goals + 1)) for l in (0.5, 1.5, 2.5, 3.5)},
+        "team_a_over": {str(l): 1.0 - sum(pa[k] for k in range(int(l) + 1)) for l in (0.5, 1.5, 2.5, 3.5)},
+        "team_b_over": {str(l): 1.0 - sum(pb[k] for k in range(int(l) + 1)) for l in (0.5, 1.5, 2.5, 3.5)},
         "clean_sheet_a": b0, "clean_sheet_b": a0,
         "win_to_nil": {"a": cell(lambda i, j: i > j and j == 0), "b": cell(lambda i, j: j > i and i == 0)},
         "dnb": {"a": pv / (1 - pe) if pe < 1 else 0.0, "b": pd / (1 - pe) if pe < 1 else 0.0},
@@ -436,6 +447,7 @@ def markets(lam_a: float, lam_b: float, max_goals: int = 10) -> dict:
                           "draw_o": cell(lambda i, j: i == j and i + j >= 3), "draw_u": cell(lambda i, j: i == j and i + j < 3),
                           "away_o": cell(lambda i, j: j > i and i + j >= 3), "away_u": cell(lambda i, j: j > i and i + j < 3)},
         "first_to_score": {"a": first_a, "b": first_b, "none": no_goal},
-        "total_goals": [(str(k), total[k]) for k in range(5)] + [("5+", sum(total[5:]))],
+        "total_goals": [(str(k), total[k]) for k in range(5)] + [("5+", max(0.0, 1.0 - sum(total[:5])))],  # B1: 5+ por complemento
         "score_grid": [[M[i][j] for j in range(6)] for i in range(6)],
     }
+# fim de markets() — partições saneadas (B1).
