@@ -1,0 +1,87 @@
+{
+  "_fonte": "Sorteio final da Copa 2026 (5 dez 2025), obtido por busca web em jun/2026 e CRUZADO com os 20 jogos já disputados no martj42 (100% coerente) + grupos G/H do registro. Nomes no padrão martj42 (inglês).",
+  "format": "wc2026: 12 grupos x 4 -> 2 melhores + 8 melhores 3os = 32 -> mata-mata",
+  "hosts": {
+    "United States": 40,
+    "Mexico": 40,
+    "Canada": 40
+  },
+  "_nota_altitude": "N2/D-37: jogos de GRUPO do anfitrião adaptado recebem gd_alt na sede informada (reusa altitude.gd_alt). Mexico City=2240m (representativa; o México também joga em Guadalajara 1566m). Mata-mata fica neutro. Ajuste a cidade conforme o calendário oficial.",
+  "altitude_venues": {
+    "Mexico": "Mexico City"
+  },
+  "groups": {
+    "A": [
+      "Mexico",
+      "South Africa",
+      "South Korea",
+      "Czech Republic"
+    ],
+    "B": [
+      "Canada",
+      "Bosnia and Herzegovina",
+      "Qatar",
+      "Switzerland"
+    ],
+    "C": [
+      "Brazil",
+      "Morocco",
+      "Haiti",
+      "Scotland"
+    ],
+    "D": [
+      "United States",
+      "Paraguay",
+      "Australia",
+      "Turkey"
+    ],
+    "E": [
+      "Germany",
+      "Curaçao",
+      "Ivory Coast",
+      "Ecuador"
+    ],
+    "F": [
+      "Netherlands",
+      "Japan",
+      "Sweden",
+      "Tunisia"
+    ],
+    "G": [
+      "Belgium",
+      "Egypt",
+      "Iran",
+      "New Zealand"
+    ],
+    "H": [
+      "Spain",
+      "Cape Verde",
+      "Saudi Arabia",
+      "Uruguay"
+    ],
+    "I": [
+      "France",
+      "Senegal",
+      "Iraq",
+      "Norway"
+    ],
+    "J": [
+      "Argentina",
+      "Algeria",
+      "Austria",
+      "Jordan"
+    ],
+    "K": [
+      "Portugal",
+      "DR Congo",
+      "Uzbekistan",
+      "Colombia"
+    ],
+    "L": [
+      "England",
+      "Croatia",
+      "Ghana",
+      "Panama"
+    ]
+  }
+}

@@ -1,26 +1,29 @@
-# caches / ambiente
+# === caches / ambiente (nunca versionar) ===
 __pycache__/
 *.pyc
 .pytest_cache/
 .venv/
 venv/
 
-# dados gerados (snapshots + sqlite) — regeneráveis; NÃO versionar
-scm_analytics/dados/*.sqlite
-scm_analytics/dados/*.csv
-
-# Obsidian: mantém config/plugins, ignora estado volátil de UI
+# === Obsidian: mantém config/plugins, ignora só o estado volátil de UI ===
 .obsidian/workspace.json
 .obsidian/workspace-mobile.json
 .obsidian/cache
-scm_analytics/dados/*.png
-scm_analytics/dados/*.json
 
-# StatsBomb open-data: clone de TERCEIROS (~18 GB, repo + licença próprios), regenerável por
-# `git clone`. NUNCA versionar (estoura o GitHub e re-distribui repo alheio). Re-clone quando precisar.
+# === StatsBomb open-data: clone de TERCEIROS (~18 GB, licença própria) — NUNCA versionar ===
+# Regenerável por `git clone` quando precisar (re-deriva goal_timing/setpiece/xg).
 scm_analytics/open-data/
 open-data/
 
-# xG DERIVADO (pequeno, auditável): por padrão segue ignorado pela regra dados/*.csv acima.
-# Recomendado COMMITAR p/ reproduzir sem o clone de 18 GB — descomente a linha abaixo:
-# !scm_analytics/dados/xg.csv
+# === dados/ : versiona o SNAPSHOT + os curados; ignora só o regenerável pesado ===
+# Decisão 2026-06-26 (clone reprodutível): por padrão TUDO em dados/ é versionado, p/ que
+# `git clone` + duplo-clique no .bat dê um sistema 100% funcional com resultados IDÊNTICOS
+# aos do autor (a base é determinística do snapshot; o Monte Carlo é seeded).
+#   • Curados/derivados NÃO regeneráveis num clone: copa2026.json (sorteio, não baixável),
+#     goal_timing.json / setpiece.csv / xg.csv (derivados do StatsBomb 18 GB), climatology.json,
+#     shootouts.csv  → versionados.
+#   • Snapshot martj42: results.csv + goalscorers.csv  → versionados (congela os dados).
+#     Atualizar depois: botão "Atualizar tudo" na web (ou `python -m scm.ingest --download`).
+# Ignora-se apenas:
+scm_analytics/dados/*.sqlite     # base regenerável (49 MB, binária) — rebuild local do results.csv
+scm_analytics/dados/*.png        # gráficos gerados (ex.: reliability.png)

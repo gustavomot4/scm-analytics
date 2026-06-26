@@ -1,0 +1,9 @@
+{
+  "_formato": "chave = 'YYYY-MM-DD|Home|Away' (nomes padrao martj42). setor: ataque|defesa|goleiro|meio. tier: chave|importante|rodizio. status 'duvida' alimenta sigma. ATAQUE corta o lambda do proprio time; DEFESA/GOLEIRO mexem no dr.",
+  "_exemplo_2026-06-21|Spain|Saudi Arabia": {"home": [{"setor": "ataque", "tier": "chave"}], "away": [{"setor": "defesa", "tier": "importante"}]},
+  "2026-06-20|Mexico|South Korea": {"home": [], "away": []},
+  "2026-06-21|Spain|Saudi Arabia": {"home": [], "away": []},
+  "2026-06-21|Uruguay|Cape Verde": {"home": [], "away": []},
+  "2026-06-26|Cape Verde|Saudi Arabia": {"home": [], "away": []},
+  "2026-06-26|Spain|Uruguay": {"home": [], "away": []}
+}

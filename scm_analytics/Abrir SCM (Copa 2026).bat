@@ -21,10 +21,17 @@ if not exist ".venv\Scripts\python.exe" (
   call ".venv\Scripts\activate.bat"
 )
 
-REM 2) Base de dados (CONSTROI na primeira vez: baixa dados + pipeline completo)
+REM 2) Base de dados. Com o snapshot VERSIONADO (dados\results.csv no repo), constroi a base
+REM    OFFLINE e com resultados IDENTICOS aos do autor (build deterministico + Monte Carlo seeded).
+REM    Sem o snapshot, baixa do martj42 (precisa de internet).
 if not exist "dados\scm.sqlite" (
-  echo [2/3] Construindo a base pela primeira vez ^(baixa dados, ~1-2 min^)...
-  python -m scm.ingest --download && python -m scm.ingest && python -m scm.elo_engine && python -m scm.features_pit && python -m scm.predictor
+  if exist "dados\results.csv" (
+    echo [2/3] Construindo a base do snapshot versionado ^(offline, resultados identicos^)...
+    python -m scm.ingest && python -m scm.elo_engine && python -m scm.features_pit && python -m scm.predictor
+  ) else (
+    echo [2/3] Snapshot ausente: baixando dados do martj42 ^(~1-2 min, precisa de internet^)...
+    python -m scm.ingest --download && python -m scm.ingest && python -m scm.elo_engine && python -m scm.features_pit && python -m scm.predictor
+  )
   if errorlevel 1 ( echo. & echo [ERRO] Falha ao construir a base. & pause & exit /b 1 )
 )
 
